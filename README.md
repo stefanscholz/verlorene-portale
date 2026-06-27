@@ -7,6 +7,21 @@ wieder auf, betritt die Welt dahinter, **befreie** die dort lauernde Gefahr und
 gewinne so eine neue **Kraft** und einen tierischen **Freund**, der dir bei der
 weiteren Suche hilft.
 
+## Online testen (Handy)
+
+Das Spiel wird bei jedem Push automatisch über **GitHub Pages** veröffentlicht
+(siehe `.github/workflows/deploy.yml`). Danach erreichbar unter:
+
+**https://stefanscholz.github.io/verlorene-portale/**
+
+Einfach diese Adresse auf dem Handy im Browser öffnen – und optional über das
+Browser-Menü „Zum Startbildschirm hinzufügen", dann startet es wie eine App.
+
+> **Einmalige Einrichtung:** Falls die Seite nach dem ersten Push noch nicht
+> erscheint, im Repo unter **Settings → Pages → Build and deployment → Source**
+> die Option **„GitHub Actions"** auswählen und den Workflow im **Actions**-Tab
+> erneut starten.
+
 ## Spielablauf (erster Meilenstein)
 
 1. **Erkunden** – Tippe auf den Boden, deine Figur läuft dorthin.

@@ -4,7 +4,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 // Vite-Konfiguration. `server.host` macht den Dev-Server im lokalen Netzwerk
 // erreichbar, damit man das Spiel direkt auf dem Handy testen kann.
 export default defineConfig({
-  base: './',
+  // GitHub-Pages-Projektseite liegt unter /<repo>/ – Basis-Pfad entsprechend
+  // setzen, damit Assets, Manifest und Service-Worker korrekt laden.
+  base: '/verlorene-portale/',
   server: { host: true },
   plugins: [
     VitePWA({
