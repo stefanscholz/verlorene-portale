@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import { TEX } from '../config'
+import { TEX, PLAYER_ANIM } from '../config'
 import { GameState } from '../systems/GameState'
 
 // Lädt den Spielstand und alle SVG-Grafiken (aus public/sprites/) als Texturen.
@@ -19,9 +19,13 @@ export class BootScene extends Phaser.Scene {
 
     svg(TEX.ground, 'ground.svg', 64, 64)
     svg(TEX.groundAlt, 'ground_alt.svg', 64, 64)
-    svg(TEX.playerDown, 'player_down.svg', 40, 40)
-    svg(TEX.playerUp, 'player_up.svg', 40, 40)
-    svg(TEX.playerSide, 'player_side.svg', 40, 40)
+    // Figur-Frames (je Richtung: idle + 2 Schrittbilder)
+    for (const dir of ['down', 'up', 'side'] as const) {
+      const a = PLAYER_ANIM[dir]
+      svg(a.idle, `player_${dir}_idle.svg`, 40, 40)
+      svg(a.walk[0], `player_${dir}_walk1.svg`, 40, 40)
+      svg(a.walk[1], `player_${dir}_walk2.svg`, 40, 40)
+    }
     svg(TEX.partRahmen, 'part_rahmen.svg', 40, 40)
     svg(TEX.partKristall, 'part_kristall.svg', 40, 40)
     svg(TEX.partSchluessel, 'part_schluessel.svg', 40, 40)
@@ -35,8 +39,28 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     GameState.load()
+    this.createPlayerAnims()
     this.scene.launch('UIScene')
     this.scene.start('TitleScene')
+  }
+
+  // Lauf- und Idle-Animationen je Richtung (global, einmalig).
+  private createPlayerAnims() {
+    for (const dir of ['down', 'up', 'side'] as const) {
+      const a = PLAYER_ANIM[dir]
+      this.anims.create({
+        key: `walk-${dir}`,
+        frames: a.walk.map((key) => ({ key })),
+        frameRate: 7,
+        repeat: -1,
+      })
+      this.anims.create({
+        key: `idle-${dir}`,
+        frames: [{ key: a.idle }],
+        frameRate: 1,
+        repeat: -1,
+      })
+    }
   }
 
   private showLoadingBar() {

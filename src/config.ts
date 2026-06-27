@@ -39,9 +39,6 @@ export const COLORS = {
 export const TEX = {
   ground: 'tex-ground',
   groundAlt: 'tex-ground-alt',
-  playerDown: 'tex-player-down',
-  playerUp: 'tex-player-up',
-  playerSide: 'tex-player-side',
   partRahmen: 'tex-part-rahmen',
   partKristall: 'tex-part-kristall',
   partSchluessel: 'tex-part-schluessel',
@@ -52,3 +49,23 @@ export const TEX = {
   creatureFriend: 'tex-creature-friend',
   companion: 'tex-companion',
 }
+
+// Frames der Spielfigur je Blickrichtung (Idle + zwei Schrittbilder).
+// Die Seite zeigt nach rechts; für links wird das Sprite gespiegelt.
+export const PLAYER_ANIM = {
+  down: {
+    idle: 'player-down-idle',
+    walk: ['player-down-walk1', 'player-down-walk2'],
+  },
+  up: {
+    idle: 'player-up-idle',
+    walk: ['player-up-walk1', 'player-up-walk2'],
+  },
+  side: {
+    idle: 'player-side-idle',
+    walk: ['player-side-walk1', 'player-side-walk2'],
+  },
+} as const
+
+export type PlayerDir = keyof typeof PLAYER_ANIM
+
