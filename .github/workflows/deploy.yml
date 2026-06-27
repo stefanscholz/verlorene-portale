@@ -7,7 +7,6 @@ on:
   push:
     branches:
       - main
-      - claude/portal-repair-game-rb5uxr
   workflow_dispatch:
 
 permissions:
@@ -15,10 +14,10 @@ permissions:
   pages: write
   id-token: write
 
-# Gleichzeitige Deployments vermeiden.
+# Nur ein Deployment gleichzeitig; laufende Produktions-Deploys nicht abbrechen.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
