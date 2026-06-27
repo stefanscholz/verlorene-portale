@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import { TEX } from '../config'
 import { GameState } from '../systems/GameState'
 import { addAtmosphere } from '../objects/atmosphere'
+import { GameAudio } from '../systems/Audio'
 
 // Startbildschirm: Titel, leuchtendes Portal, „Spielen" und „Geschichte".
 // Bei vorhandenem Fortschritt führt „Spielen" direkt in die Welt, sonst
@@ -16,6 +17,9 @@ export class TitleScene extends Phaser.Scene {
     const h = this.scale.height
     this.cameras.main.setBackgroundColor('#191634')
     addAtmosphere(this, w, h, 26)
+
+    // Erste Berührung gibt Audio frei und startet die Musik.
+    this.input.once('pointerdown', () => GameAudio.ensureStarted())
 
     // Leuchtendes Portal als Blickfang
     const portal = this.add.image(w / 2, h * 0.3, TEX.portal).setScale(1.4)

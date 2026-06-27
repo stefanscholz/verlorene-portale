@@ -7,6 +7,7 @@ import { Collectible } from '../objects/Collectible'
 import { PortalFoundation } from '../objects/PortalFoundation'
 import { Companion } from '../objects/Companion'
 import { addAtmosphere } from '../objects/atmosphere'
+import { GameAudio } from '../systems/Audio'
 
 // Die Hauptwelt: erkunden, die 3 Portal-Teile sammeln, am Fundament das Portal
 // bauen und es betreten. Ein bereits befreundeter Begleiter folgt der Figur.
@@ -69,6 +70,9 @@ export class MainWorldScene extends Phaser.Scene {
 
     // Tippen: zum Bauen-Knopf -> bauen, sonst hinlaufen.
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      GameAudio.ensureStarted()
+      // Tipp auf den Ton-Knopf (oben rechts) nicht als Laufen werten
+      if (p.x > this.cameras.main.width - 52 && p.y < 50) return
       if (this.buildButton && this.buildButtonRect.contains(p.x, p.y)) {
         this.buildPortal()
         return
@@ -101,6 +105,7 @@ export class MainWorldScene extends Phaser.Scene {
   private collectPart(c: Collectible) {
     if (!c.active) return
     GameState.collectPart(this.portal.id, c.partDef.id)
+    GameAudio.collect()
     const idx = this.collectibles.indexOf(c)
     if (idx >= 0) this.collectibles.splice(idx, 1)
     this.tweens.add({
@@ -126,6 +131,7 @@ export class MainWorldScene extends Phaser.Scene {
     if (this.foundation.built) return
     if (!GameState.hasAllParts(this.portal.id)) return
     GameState.buildPortal(this.portal.id)
+    GameAudio.build()
     this.foundation.build()
     this.hideBuildButton()
     this.cameras.main.flash(450, 200, 150, 255)
@@ -136,6 +142,7 @@ export class MainWorldScene extends Phaser.Scene {
   private tryEnterPortal() {
     if (!this.foundation.built || this.entering) return
     this.entering = true
+    GameAudio.portalEnter()
     this.player.halt()
     this.cameras.main.fadeOut(500, 0, 0, 0)
     this.cameras.main.once('camerafadeoutcomplete', () => {

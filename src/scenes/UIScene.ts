@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { GameAudio } from '../systems/Audio'
 
 export interface HudData {
   mode?: 'main' | 'portal'
@@ -50,6 +51,19 @@ export class UIScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(1000)
       .setAlpha(0)
+
+    // Ton an/aus
+    const muteBtn = this.add
+      .text(w - 12, 14, GameAudio.isMuted() ? '🔇' : '🔊', { fontSize: '26px' })
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+      .setDepth(1000)
+      .setInteractive({ useHandCursor: true })
+    muteBtn.on('pointerdown', () => {
+      GameAudio.ensureStarted()
+      const muted = GameAudio.toggleMute()
+      muteBtn.setText(muted ? '🔇' : '🔊')
+    })
 
     const onHud = (d: HudData) => {
       if (d.mode === 'portal') {

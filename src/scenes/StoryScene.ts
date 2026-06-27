@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import { TEX } from '../config'
 import { addAtmosphere } from '../objects/atmosphere'
+import { GameAudio } from '../systems/Audio'
 
 // Erzähl-Intro: die Geschichte der großen Katastrophe in kurzen, kindgerechten
 // Seiten. Antippen blättert weiter; „Überspringen" springt direkt ins Spiel.
@@ -81,6 +82,7 @@ export class StoryScene extends Phaser.Scene {
       .on('pointerdown', () => this.finish())
 
     this.showPage()
+    this.input.once('pointerdown', () => GameAudio.ensureStarted())
     this.input.on('pointerdown', (_p: Phaser.Input.Pointer, objects: unknown[]) => {
       // Taps auf den „Überspringen"-Button nicht als Weiterblättern werten
       if (objects && objects.length > 0) return

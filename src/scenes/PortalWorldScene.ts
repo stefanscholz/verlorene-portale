@@ -6,6 +6,7 @@ import { Player } from '../objects/Player'
 import { Creature } from '../objects/Creature'
 import { Projectile } from '../objects/Projectile'
 import { addAtmosphere } from '../objects/atmosphere'
+import { GameAudio } from '../systems/Audio'
 
 // Die Welt hinter dem Portal: Hier lauert eine Gefahr (Creature). Der Spieler
 // läuft per Tippen und wirft mit dem "Werfen"-Knopf Lichtkugeln. Ist die Gefahr
@@ -56,6 +57,9 @@ export class PortalWorldScene extends Phaser.Scene {
     }
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      GameAudio.ensureStarted()
+      // Tipp auf den Ton-Knopf (oben rechts) nicht als Laufen werten
+      if (p.x > this.cameras.main.width - 52 && p.y < 50) return
       if (this.throwButtonRect.contains(p.x, p.y)) {
         this.tryThrow()
         return
@@ -107,6 +111,7 @@ export class PortalWorldScene extends Phaser.Scene {
     const now = this.time.now
     if (now - this.lastThrow < THROW_COOLDOWN) return
     this.lastThrow = now
+    GameAudio.shoot()
 
     // Auto-Zielhilfe: Richtung zur Gefahr (sonst aktuelle Laufrichtung).
     const dir = new Phaser.Math.Vector2(
@@ -123,6 +128,7 @@ export class PortalWorldScene extends Phaser.Scene {
     if (!this.creature || this.creature.freed || !pr.active) return
     pr.destroy()
     const defeated = this.creature.hit()
+    GameAudio.hit()
     this.cameras.main.shake(110, 0.004)
     if (defeated) this.onVictory()
   }
@@ -155,6 +161,7 @@ export class PortalWorldScene extends Phaser.Scene {
 
     this.creature?.free()
     this.hideThrowButton()
+    GameAudio.victory()
     this.cameras.main.flash(500, 180, 255, 180)
     this.game.events.emit(
       'toast',
@@ -182,6 +189,7 @@ export class PortalWorldScene extends Phaser.Scene {
   private leave() {
     if (this.leaving) return
     this.leaving = true
+    GameAudio.portalEnter()
     this.player.halt()
     this.cameras.main.fadeOut(500, 0, 0, 0)
     this.cameras.main.once('camerafadeoutcomplete', () => {

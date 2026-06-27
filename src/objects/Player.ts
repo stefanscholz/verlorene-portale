@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import { PLAYER_ANIM, PlayerDir, PLAYER_SPEED } from '../config'
+import { GameAudio } from '../systems/Audio'
 
 // Die Spielfigur. Steuerung per "Tippen zum Bewegen": Beim Antippen merkt sich
 // die Figur das Ziel und läuft selbstständig dorthin, bis sie ankommt.
@@ -12,6 +13,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private dir: PlayerDir = 'down'
   private moving = false
   private breath?: Phaser.Tweens.Tween
+  private stepAcc = 0
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, PLAYER_ANIM.down.idle)
@@ -50,6 +52,17 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.updateAnimation(body.velocity)
+
+    // Schrittgeräusche im Lauf-Rhythmus
+    if (this.moving) {
+      this.stepAcc += delta
+      if (this.stepAcc >= 300) {
+        this.stepAcc = 0
+        GameAudio.step()
+      }
+    } else {
+      this.stepAcc = 300 // erster Schritt klingt sofort beim Loslaufen
+    }
   }
 
   private updateAnimation(v: Phaser.Math.Vector2) {
