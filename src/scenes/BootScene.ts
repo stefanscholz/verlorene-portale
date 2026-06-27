@@ -19,7 +19,9 @@ export class BootScene extends Phaser.Scene {
 
     svg(TEX.ground, 'ground.svg', 64, 64)
     svg(TEX.groundAlt, 'ground_alt.svg', 64, 64)
-    svg(TEX.player, 'player.svg', 40, 40)
+    svg(TEX.playerDown, 'player_down.svg', 40, 40)
+    svg(TEX.playerUp, 'player_up.svg', 40, 40)
+    svg(TEX.playerSide, 'player_side.svg', 40, 40)
     svg(TEX.partRahmen, 'part_rahmen.svg', 40, 40)
     svg(TEX.partKristall, 'part_kristall.svg', 40, 40)
     svg(TEX.partSchluessel, 'part_schluessel.svg', 40, 40)
@@ -34,7 +36,7 @@ export class BootScene extends Phaser.Scene {
   create() {
     GameState.load()
     this.scene.launch('UIScene')
-    this.scene.start('MainWorldScene')
+    this.scene.start('TitleScene')
   }
 
   private showLoadingBar() {

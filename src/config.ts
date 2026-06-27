@@ -39,7 +39,9 @@ export const COLORS = {
 export const TEX = {
   ground: 'tex-ground',
   groundAlt: 'tex-ground-alt',
-  player: 'tex-player',
+  playerDown: 'tex-player-down',
+  playerUp: 'tex-player-up',
+  playerSide: 'tex-player-side',
   partRahmen: 'tex-part-rahmen',
   partKristall: 'tex-part-kristall',
   partSchluessel: 'tex-part-schluessel',

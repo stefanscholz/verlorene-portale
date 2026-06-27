@@ -1,6 +1,8 @@
 import Phaser from 'phaser'
 import { GAME_WIDTH, GAME_HEIGHT } from './config'
 import { BootScene } from './scenes/BootScene'
+import { TitleScene } from './scenes/TitleScene'
+import { StoryScene } from './scenes/StoryScene'
 import { MainWorldScene } from './scenes/MainWorldScene'
 import { PortalWorldScene } from './scenes/PortalWorldScene'
 import { UIScene } from './scenes/UIScene'
@@ -21,7 +23,7 @@ const config: Phaser.Types.Core.GameConfig = {
     default: 'arcade',
     arcade: { gravity: { x: 0, y: 0 }, debug: false },
   },
-  scene: [BootScene, MainWorldScene, PortalWorldScene, UIScene],
+  scene: [BootScene, TitleScene, StoryScene, MainWorldScene, PortalWorldScene, UIScene],
 }
 
 const game = new Phaser.Game(config)
