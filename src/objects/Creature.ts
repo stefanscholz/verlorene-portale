@@ -19,7 +19,6 @@ export class Creature extends Phaser.Physics.Arcade.Sprite {
     this.speed = def.speed
     scene.add.existing(this)
     scene.physics.add.existing(this)
-    this.setTint(def.color)
     this.setCircle(28)
     this.setDepth(6)
     this.bar = scene.add.graphics().setDepth(7)
@@ -41,11 +40,11 @@ export class Creature extends Phaser.Physics.Arcade.Sprite {
     return this.energy <= 0
   }
 
-  /** Befreien: anhalten, freundlich einfärben, Energie-Balken entfernen. */
+  /** Befreien: anhalten, freundliches Sprite zeigen, Energie-Balken entfernen. */
   free() {
     this.freed = true
     ;(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0)
-    this.setTint(0x66bb6a)
+    this.setTexture(TEX.creatureFriend)
     this.bar.clear()
     this.scene.tweens.add({
       targets: this,

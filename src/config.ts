@@ -35,15 +35,18 @@ export const COLORS = {
   companion: 0xffffff, // weiß -> wird per Tint eingefärbt
 }
 
-// Schlüssel für die zur Laufzeit erzeugten Platzhalter-Texturen.
+// Schlüssel für die geladenen SVG-Texturen (siehe public/sprites/, BootScene).
 export const TEX = {
   ground: 'tex-ground',
   groundAlt: 'tex-ground-alt',
   player: 'tex-player',
-  part: 'tex-part',
+  partRahmen: 'tex-part-rahmen',
+  partKristall: 'tex-part-kristall',
+  partSchluessel: 'tex-part-schluessel',
   foundation: 'tex-foundation',
   portal: 'tex-portal',
   projectile: 'tex-projectile',
   creature: 'tex-creature',
+  creatureFriend: 'tex-creature-friend',
   companion: 'tex-companion',
 }

@@ -11,7 +11,7 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icons/icon.svg'],
+      includeAssets: ['icons/icon.svg', 'sprites/*.svg'],
       manifest: {
         name: 'Verlorene Portale',
         short_name: 'Portale',

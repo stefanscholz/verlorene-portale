@@ -2,6 +2,8 @@
 // Belohnungswelt, Gefahr, Kraft und Begleiter) entsteht allein durch einen
 // weiteren Eintrag in PORTALS – die Spiel-Logik (Scenes) bleibt unverändert.
 
+import { TEX } from '../config'
+
 export interface Vec2 {
   x: number
   y: number
@@ -11,6 +13,7 @@ export interface PartDef {
   id: string
   name: string
   pos: Vec2
+  tex: string // Textur-Schlüssel (eigenes Aussehen je Teil)
 }
 
 /** Die "Gefahr" in der Belohnungswelt. */
@@ -55,9 +58,9 @@ export const PORTALS: PortalDef[] = [
     name: 'Das Waldportal',
     foundation: { x: 800, y: 320 },
     parts: [
-      { id: 'rahmen', name: 'Portal-Rahmen', pos: { x: 240, y: 1200 } },
-      { id: 'kristall', name: 'Leucht-Kristall', pos: { x: 1360, y: 1300 } },
-      { id: 'schluessel', name: 'Portal-Schlüssel', pos: { x: 1320, y: 380 } },
+      { id: 'rahmen', name: 'Portal-Rahmen', pos: { x: 240, y: 1200 }, tex: TEX.partRahmen },
+      { id: 'kristall', name: 'Leucht-Kristall', pos: { x: 1360, y: 1300 }, tex: TEX.partKristall },
+      { id: 'schluessel', name: 'Portal-Schlüssel', pos: { x: 1320, y: 380 }, tex: TEX.partSchluessel },
     ],
     reward: {
       groundColor: 0x4527a0,

@@ -6,6 +6,7 @@ import { Player } from '../objects/Player'
 import { Collectible } from '../objects/Collectible'
 import { PortalFoundation } from '../objects/PortalFoundation'
 import { Companion } from '../objects/Companion'
+import { addAtmosphere } from '../objects/atmosphere'
 
 // Die Hauptwelt: erkunden, die 3 Portal-Teile sammeln, am Fundament das Portal
 // bauen und es betreten. Ein bereits befreundeter Begleiter folgt der Figur.
@@ -33,6 +34,7 @@ export class MainWorldScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
     this.drawGround()
+    addAtmosphere(this, WORLD_WIDTH, WORLD_HEIGHT, 22)
 
     // Spielfigur startet etwas unterhalb des Fundaments.
     this.player = new Player(this, this.portal.foundation.x, this.portal.foundation.y + 170)

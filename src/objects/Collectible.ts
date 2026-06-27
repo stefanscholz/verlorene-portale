@@ -1,14 +1,13 @@
 import Phaser from 'phaser'
-import { TEX } from '../config'
 import { PartDef } from '../data/portals'
 
 // Ein einsammelbares Portal-Teil in der Hauptwelt. Schwebt und dreht sich
-// leicht, damit es auffällt.
+// leicht, damit es auffällt. Jedes Teil hat sein eigenes Aussehen (def.tex).
 export class Collectible extends Phaser.Physics.Arcade.Image {
   partDef: PartDef
 
   constructor(scene: Phaser.Scene, def: PartDef) {
-    super(scene, def.pos.x, def.pos.y, TEX.part)
+    super(scene, def.pos.x, def.pos.y, def.tex)
     this.partDef = def
     scene.add.existing(this)
     scene.physics.add.existing(this)

@@ -25,10 +25,18 @@ export class PortalFoundation extends Phaser.Physics.Arcade.Image {
   }
 
   private activatePortalVisual() {
+    // Langsam rotierender Glanz hinter dem Portal für den magischen Look.
+    const glow = this.scene.add
+      .image(this.x, this.y, TEX.portal)
+      .setDepth(this.depth - 1)
+      .setScale(1.3)
+      .setAlpha(0.3)
+      .setTint(0x8be9fd)
+    this.scene.tweens.add({ targets: glow, angle: 360, duration: 9000, repeat: -1 })
     this.scene.tweens.add({
       targets: this,
-      scale: { from: 0.9, to: 1.1 },
-      duration: 1000,
+      scale: { from: 0.95, to: 1.08 },
+      duration: 1100,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.inOut',

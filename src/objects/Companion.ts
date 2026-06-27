@@ -6,15 +6,13 @@ import { TEX } from '../config'
 export class Companion extends Phaser.GameObjects.Image {
   private glow: Phaser.GameObjects.Image
 
-  constructor(scene: Phaser.Scene, x: number, y: number, color: number) {
+  constructor(scene: Phaser.Scene, x: number, y: number, _color: number) {
     super(scene, x, y, TEX.companion)
     scene.add.existing(this)
-    this.setTint(color)
     this.setDepth(9)
 
     this.glow = scene.add
       .image(x, y, TEX.companion)
-      .setTint(0xffffff)
       .setAlpha(0)
       .setScale(2)
       .setDepth(8)

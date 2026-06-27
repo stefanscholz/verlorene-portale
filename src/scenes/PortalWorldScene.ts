@@ -5,6 +5,7 @@ import { GameState } from '../systems/GameState'
 import { Player } from '../objects/Player'
 import { Creature } from '../objects/Creature'
 import { Projectile } from '../objects/Projectile'
+import { addAtmosphere } from '../objects/atmosphere'
 
 // Die Welt hinter dem Portal: Hier lauert eine Gefahr (Creature). Der Spieler
 // läuft per Tippen und wirft mit dem "Werfen"-Knopf Lichtkugeln. Ist die Gefahr
@@ -39,6 +40,7 @@ export class PortalWorldScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, REWARD_WIDTH, REWARD_HEIGHT)
     this.cameras.main.setBounds(0, 0, REWARD_WIDTH, REWARD_HEIGHT)
     this.cameras.main.setBackgroundColor(this.portal.reward.groundColor)
+    addAtmosphere(this, REWARD_WIDTH, REWARD_HEIGHT, 30)
 
     this.player = new Player(this, REWARD_WIDTH / 2, REWARD_HEIGHT - 150)
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1)
