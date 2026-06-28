@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import { TILE } from '../config'
 import { THEMES, TerrainTheme } from '../systems/terrain'
+import { GameState } from '../systems/GameState'
 
 // Zeichnet ein Terrain-Grid, baut Kollisionskörper für unpassierbare Kacheln
 // (Berge/Brocken/Steine) und beantwortet Abfragen zur Position der Figur.
@@ -46,12 +47,25 @@ export class TerrainMap {
     return this.grid[r]?.[c]
   }
 
+  // Ist die zur Kachel gehörende Gelände-Fähigkeit freigeschaltet?
+  private abilityActive(t: { ability?: string }) {
+    return !!t.ability && GameState.hasTerrainAbility(t.ability)
+  }
+
   speedAt(x: number, y: number): number {
-    return this.typeAt(x, y)?.speed ?? 1
+    const t = this.typeAt(x, y)
+    if (!t) return 1
+    // Freigeschaltete Fähigkeit hebt die Bremswirkung auf (mind. normales Tempo).
+    if (this.abilityActive(t)) return Math.max(t.speed, 1)
+    return t.speed
   }
 
   drainAt(x: number, y: number): number {
-    return this.typeAt(x, y)?.drain ?? 0
+    const t = this.typeAt(x, y)
+    if (!t) return 0
+    // Freigeschaltete Fähigkeit hebt den Energieabzug auf.
+    if (this.abilityActive(t)) return 0
+    return t.drain
   }
 
   isImpassable(x: number, y: number): boolean {

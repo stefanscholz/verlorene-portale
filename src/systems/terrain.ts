@@ -10,6 +10,10 @@ export interface TerrainType {
   drain: number // Energie %/s, solange man darauf steht
   impassable: boolean
   tex: string
+  // Optionale Gelände-Fähigkeit: ist sie freigeschaltet, entfällt der Nachteil
+  // dieser Kachel (Tempo -> mind. normal, Drain -> 0). So wird eine neue
+  // Freund-Fähigkeit allein über die Daten „verkabelt".
+  ability?: string
 }
 
 export interface TerrainTheme {
@@ -31,9 +35,9 @@ export const THEMES: Record<string, TerrainTheme> = {
     types: {
       gras: { speed: 1.0, drain: 0, impassable: false, tex: TEX.tGras },
       weg: { speed: 1.4, drain: 0, impassable: false, tex: TEX.tWeg },
-      wald: { speed: 0.55, drain: 0, impassable: false, tex: TEX.tWald },
+      wald: { speed: 0.55, drain: 0, impassable: false, tex: TEX.tWald, ability: 'waldlaeufer' },
       flach: { speed: 0.5, drain: 0, impassable: false, tex: TEX.tFlach },
-      tief: { speed: 0.42, drain: 4, impassable: false, tex: TEX.tTief },
+      tief: { speed: 0.42, drain: 4, impassable: false, tex: TEX.tTief, ability: 'wassergeist' },
       berg: { speed: 0, drain: 0, impassable: true, tex: TEX.tBerg },
       stein: { speed: 0, drain: 0, impassable: true, tex: TEX.tStein },
     },
@@ -45,11 +49,35 @@ export const THEMES: Record<string, TerrainTheme> = {
       nebel: { speed: 1.0, drain: 0, impassable: false, tex: TEX.tNebel },
       pfad: { speed: 1.4, drain: 0, impassable: false, tex: TEX.tPfad },
       feld: { speed: 0.55, drain: 0, impassable: false, tex: TEX.tFeld },
-      leere: { speed: 0.45, drain: 4, impassable: false, tex: TEX.tLeere },
+      leere: { speed: 0.45, drain: 4, impassable: false, tex: TEX.tLeere, ability: 'wassergeist' },
       brocken: { speed: 0, drain: 0, impassable: true, tex: TEX.tBrocken },
     },
     roles: { base: 'nebel', road: 'pfad', rough: 'feld', deep: 'leere', block: 'brocken' },
     features: { mountains: 6, forests: 9, rivers: 1, stones: 0 },
+  },
+  wueste: {
+    types: {
+      sand: { speed: 1.0, drain: 0, impassable: false, tex: TEX.tSand },
+      wuestenweg: { speed: 1.4, drain: 0, impassable: false, tex: TEX.tWuestenweg },
+      duene: { speed: 0.55, drain: 0, impassable: false, tex: TEX.tDuene },
+      // Treibsand zieht Energie – „Sandwanderer" hebt das auf.
+      treibsand: { speed: 0.45, drain: 4, impassable: false, tex: TEX.tTreibsand, ability: 'sandwanderer' },
+      wuestenfels: { speed: 0, drain: 0, impassable: true, tex: TEX.tWuestenfels },
+    },
+    roles: { base: 'sand', road: 'wuestenweg', rough: 'duene', deep: 'treibsand', block: 'wuestenfels' },
+    features: { mountains: 5, forests: 8, rivers: 2, stones: 0 },
+  },
+  hoehle: {
+    types: {
+      boden: { speed: 1.0, drain: 0, impassable: false, tex: TEX.tBoden },
+      pilzpfad: { speed: 1.4, drain: 0, impassable: false, tex: TEX.tPilz },
+      // Enge Gänge bremsen – „Höhlenlicht" hebt das auf.
+      enge: { speed: 0.55, drain: 0, impassable: false, tex: TEX.tEnge, ability: 'hoehlenlicht' },
+      lava: { speed: 0.45, drain: 4, impassable: false, tex: TEX.tLava },
+      fels: { speed: 0, drain: 0, impassable: true, tex: TEX.tHoehleFels },
+    },
+    roles: { base: 'boden', road: 'pilzpfad', rough: 'enge', deep: 'lava', block: 'fels' },
+    features: { mountains: 8, forests: 10, rivers: 2, stones: 0 },
   },
 }
 

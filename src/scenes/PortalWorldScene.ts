@@ -444,9 +444,10 @@ export class PortalWorldScene extends Phaser.Scene {
 
     if (!this.charging || this.failed || this.leaving) return
 
-    // Leere (tiefer Weltraum) zieht Energie – außer mit „Wassergeist".
+    // Tiefe Drain-Kacheln ziehen Energie; freigeschaltete Gelände-Fähigkeiten
+    // (z. B. „Wassergeist") liefern über drainAt bereits 0.
     const drain = this.terrain.drainAt(this.player.x, this.player.y)
-    if (drain > 0 && !GameState.hasTerrainAbility('wassergeist')) {
+    if (drain > 0) {
       this.setEnergy(this.energy - drain * (delta / 1000))
     }
 

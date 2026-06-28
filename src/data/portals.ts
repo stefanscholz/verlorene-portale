@@ -122,6 +122,68 @@ export const PORTALS: PortalDef[] = [
       initialEnergySources: 6,
     },
   },
+  {
+    id: 'portal-wueste',
+    name: 'Das Wüstenportal',
+    parts: [
+      { id: 'rahmen', name: 'Wüsten-Rahmen', tex: TEX.partRahmen },
+      { id: 'kristall', name: 'Wüsten-Kristall', tex: TEX.partKristall },
+      { id: 'schluessel', name: 'Wüsten-Schlüssel', tex: TEX.partSchluessel },
+    ],
+    reward: {
+      groundColor: 0x8d5a2b,
+      terrainTheme: 'wueste',
+      creature: { energy: 6, speed: 76, color: 0xff7043 },
+      ability: {
+        id: 'wuestenblick',
+        name: 'Wüstenblick',
+        description: 'Dein Begleiter leuchtet, wenn ein Portal-Teil in der Nähe ist!',
+      },
+      companion: { id: 'sandy', name: 'Sandy', color: 0xffb74d },
+      terrainAbility: {
+        id: 'sandwanderer',
+        name: 'Sandwanderer',
+        description: 'Treibsand zieht dir keine Energie mehr ab!',
+      },
+      floorTex: TEX.floorSpace,
+      hazardTex: TEX.hazard,
+      hazardName: 'Schwarzes Loch',
+      energyTex: TEX.energy,
+      energyName: 'Sternenenergie',
+      initialEnergySources: 6,
+    },
+  },
+  {
+    id: 'portal-hoehle',
+    name: 'Das Höhlenportal',
+    parts: [
+      { id: 'rahmen', name: 'Höhlen-Rahmen', tex: TEX.partRahmen },
+      { id: 'kristall', name: 'Höhlen-Kristall', tex: TEX.partKristall },
+      { id: 'schluessel', name: 'Höhlen-Schlüssel', tex: TEX.partSchluessel },
+    ],
+    reward: {
+      groundColor: 0x2e2838,
+      terrainTheme: 'hoehle',
+      creature: { energy: 7, speed: 70, color: 0xab47bc },
+      ability: {
+        id: 'hoehlenspuersinn',
+        name: 'Höhlenspürsinn',
+        description: 'Dein Begleiter leuchtet, wenn ein Portal-Teil in der Nähe ist!',
+      },
+      companion: { id: 'funkel', name: 'Funkel', color: 0x80deea },
+      terrainAbility: {
+        id: 'hoehlenlicht',
+        name: 'Höhlenlicht',
+        description: 'Enge Gänge bremsen dich nicht mehr!',
+      },
+      floorTex: TEX.floorSpace,
+      hazardTex: TEX.hazard,
+      hazardName: 'Schwarzes Loch',
+      energyTex: TEX.energy,
+      energyName: 'Sternenenergie',
+      initialEnergySources: 6,
+    },
+  },
 ]
 
 export const FIRST_PORTAL = PORTALS[0]
