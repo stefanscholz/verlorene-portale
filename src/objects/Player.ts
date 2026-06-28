@@ -14,6 +14,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private moving = false
   private breath?: Phaser.Tweens.Tween
   private stepAcc = 0
+  /** Liefert den Tempo-Faktor am Ort (1 = normal); vom Terrain gesetzt. */
+  private terrain?: (x: number, y: number) => number
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, PLAYER_ANIM.down.idle)
@@ -23,6 +25,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setCollideWorldBounds(true)
     this.setDepth(10)
     this.playIdle()
+  }
+
+  /** Tempo-Faktor je nach Boden setzen (Terrain). */
+  setTerrain(sampler: (x: number, y: number) => number) {
+    this.terrain = sampler
   }
 
   /** Ziel setzen – die Figur läuft im preUpdate dorthin. */
@@ -46,7 +53,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         body.setVelocity(0, 0)
         this.target = undefined
       } else {
-        this.scene.physics.moveTo(this, this.target.x, this.target.y, PLAYER_SPEED)
+        const factor = this.terrain ? Math.max(0.2, this.terrain(this.x, this.y)) : 1
+        this.scene.physics.moveTo(this, this.target.x, this.target.y, PLAYER_SPEED * factor)
         this.facing.set(this.target.x - this.x, this.target.y - this.y).normalize()
       }
     }

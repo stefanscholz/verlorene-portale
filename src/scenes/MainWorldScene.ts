@@ -10,6 +10,8 @@ import { Compass } from '../objects/Compass'
 import { addAtmosphere } from '../objects/atmosphere'
 import { GameAudio } from '../systems/Audio'
 import { computeLayout } from '../systems/layout'
+import { generateTerrain } from '../systems/terrain'
+import { TerrainMap } from '../objects/TerrainMap'
 
 // Die Hauptwelt: erkunden, die 3 Portal-Teile sammeln, am Fundament das Portal
 // bauen und es betreten. Ein bereits befreundeter Begleiter folgt der Figur.
@@ -24,6 +26,8 @@ export class MainWorldScene extends Phaser.Scene {
   private entering = false
   private energyHintShown = false
   private compass!: Compass
+  private terrain!: TerrainMap
+  private lastEnergyInt = -1
 
   constructor() {
     super('MainWorldScene')
@@ -38,14 +42,32 @@ export class MainWorldScene extends Phaser.Scene {
 
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
-    this.drawGround()
-    addAtmosphere(this, WORLD_WIDTH, WORLD_HEIGHT, 22)
+    this.lastEnergyInt = -1
 
     // Zufällige (aber pro Spielstand stabile) Platzierung.
     const layout = computeLayout(this.portal, GameState.seed)
 
-    // Spielfigur startet etwas unterhalb des Fundaments.
+    // Landschaft erzeugen (Berge/Flüsse/Wälder/Wege); Zielpunkte bleiben begehbar.
+    const clear = [
+      layout.playerStart,
+      layout.foundation,
+      layout.camp,
+      ...Object.values(layout.parts),
+    ].map((p) => ({ col: Math.floor(p.x / TILE), row: Math.floor(p.y / TILE) }))
+    const grid = generateTerrain(
+      'wald',
+      Math.ceil(WORLD_WIDTH / TILE),
+      Math.ceil(WORLD_HEIGHT / TILE),
+      GameState.seed,
+      clear,
+    )
+    this.terrain = new TerrainMap(this, 'wald', grid)
+    addAtmosphere(this, WORLD_WIDTH, WORLD_HEIGHT, 22)
+
+    // Spielfigur – Tempo richtet sich nach dem Boden, Berge/Steine blocken.
     this.player = new Player(this, layout.playerStart.x, layout.playerStart.y)
+    this.player.setTerrain((x, y) => this.terrain.speedAt(x, y))
+    this.physics.add.collider(this.player, this.terrain.blockers)
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1)
 
     // Fundament bzw. (falls bereits gebaut) aktives Portal.
@@ -99,17 +121,6 @@ export class MainWorldScene extends Phaser.Scene {
       this.toast('Willkommen zurück! Tritt ins Portal, um die andere Welt zu besuchen.')
     } else {
       this.toast(`${this.portal.name} ist zerstört. Finde die 3 Teile und baue es wieder auf!`)
-    }
-  }
-
-  private drawGround() {
-    const cols = Math.ceil(WORLD_WIDTH / TILE)
-    const rows = Math.ceil(WORLD_HEIGHT / TILE)
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const key = (r + c) % 2 === 0 ? TEX.ground : TEX.groundAlt
-        this.add.image(c * TILE, r * TILE, key).setOrigin(0, 0).setDepth(0)
-      }
     }
   }
 
@@ -214,7 +225,25 @@ export class MainWorldScene extends Phaser.Scene {
     this.game.events.emit('toast', text)
   }
 
-  update() {
+  // Tiefes Wasser zieht Energie, solange man darin steht.
+  private drainInDeepWater(delta: number) {
+    const drain = this.terrain.drainAt(this.player.x, this.player.y)
+    if (drain <= 0) return
+    const e = GameState.getEnergy(this.portal.id)
+    if (e <= 0) return
+    GameState.setEnergy(this.portal.id, e - drain * (delta / 1000))
+    const shown = Math.ceil(GameState.getEnergy(this.portal.id))
+    if (shown !== this.lastEnergyInt) {
+      this.lastEnergyInt = shown
+      this.emitHud()
+      this.applyPortalEnergy()
+      this.cameras.main.flash(120, 60, 90, 160)
+    }
+  }
+
+  update(_time: number, delta: number) {
+    this.drainInDeepWater(delta)
+
     // Begleiter folgt der Figur und leuchtet (mit Kraft "Spürsinn") nahe Teilen.
     if (this.companion) {
       this.companion.follow(this.player.x - 28, this.player.y - 6)

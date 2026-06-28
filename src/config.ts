@@ -7,13 +7,13 @@
 export const GAME_WIDTH = 480
 export const GAME_HEIGHT = 800
 
-// Größe der Hauptwelt (größer als der Bildschirm -> Kamera folgt der Figur).
-export const WORLD_WIDTH = 1600
-export const WORLD_HEIGHT = 1600
+// Größe der Hauptwelt (groß genug zum Erforschen -> Kamera folgt der Figur).
+export const WORLD_WIDTH = 3200
+export const WORLD_HEIGHT = 3200
 
 // Größe der Belohnungswelt hinter dem Portal.
-export const REWARD_WIDTH = 720
-export const REWARD_HEIGHT = 1000
+export const REWARD_WIDTH = 1280
+export const REWARD_HEIGHT = 1600
 
 export const TILE = 64
 
@@ -52,6 +52,20 @@ export const TEX = {
   hazard: 'tex-hazard',
   energy: 'tex-energy',
   compass: 'tex-compass',
+  // Terrain-Kacheln (Wald-Thema)
+  tGras: 'tex-t-gras',
+  tWeg: 'tex-t-weg',
+  tWald: 'tex-t-wald',
+  tFlach: 'tex-t-flach',
+  tTief: 'tex-t-tief',
+  tBerg: 'tex-t-berg',
+  tStein: 'tex-t-stein',
+  // Terrain-Kacheln (Weltraum-Thema)
+  tNebel: 'tex-t-nebel',
+  tPfad: 'tex-t-pfad',
+  tFeld: 'tex-t-feld',
+  tLeere: 'tex-t-leere',
+  tBrocken: 'tex-t-brocken',
 }
 
 // Schwierigkeitsgrade steuern Energie-Verfall, Hazards und Strafen.
