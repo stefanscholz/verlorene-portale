@@ -87,14 +87,15 @@ export class PortalWorldScene extends Phaser.Scene {
       col: Math.floor(p.x / TILE),
       row: Math.floor(p.y / TILE),
     }))
+    const theme = this.portal.reward.terrainTheme
     const grid = generateTerrain(
-      'weltraum',
+      theme,
       Math.ceil(REWARD_WIDTH / TILE),
       Math.ceil(REWARD_HEIGHT / TILE),
-      GameState.seed,
+      `${GameState.seed}:${this.portal.id}`,
       clear,
     )
-    this.terrain = new TerrainMap(this, 'weltraum', grid)
+    this.terrain = new TerrainMap(this, theme, grid)
     addAtmosphere(this, REWARD_WIDTH, REWARD_HEIGHT, 30)
 
     this.player = new Player(this, this.layout.rewardSpawn.x, this.layout.rewardSpawn.y)
@@ -443,9 +444,11 @@ export class PortalWorldScene extends Phaser.Scene {
 
     if (!this.charging || this.failed || this.leaving) return
 
-    // Leere (tiefer Weltraum) zieht Energie, solange man darin steht.
+    // Leere (tiefer Weltraum) zieht Energie – außer mit „Wassergeist".
     const drain = this.terrain.drainAt(this.player.x, this.player.y)
-    if (drain > 0) this.setEnergy(this.energy - drain * (delta / 1000))
+    if (drain > 0 && !GameState.hasTerrainAbility('wassergeist')) {
+      this.setEnergy(this.energy - drain * (delta / 1000))
+    }
 
     // Energie-Verfall startet langsam: 3 s Schonzeit, dann über 5 s auf vollen
     // Verfall hochrampen. Leere Energie ist KEIN Verlust – verloren hat man nur
