@@ -29,7 +29,7 @@ export class HazardFloor {
   private cols: number
   private rows: number
   private tiles: Tile[][] = []
-  private active = 0
+  private infected: Tile[] = [] // aktuell befallene Kacheln (warn + hazard)
   private spawnEvent?: Phaser.Time.TimerEvent
   private opts: HazardFloorOpts
 
@@ -75,6 +75,37 @@ export class HazardFloor {
     return this.tileAt(x, y)?.state === 'hazard'
   }
 
+  /** Nächste befallene Kachel (für die Zielhilfe beim Freigeben). */
+  nearestInfected(x: number, y: number): { x: number; y: number } | null {
+    let best: { x: number; y: number } | null = null
+    let bd = Number.POSITIVE_INFINITY
+    // Hazards bevorzugen (sichtbar), sonst Warn-Kacheln.
+    for (const onlyHazard of [true, false]) {
+      for (const t of this.infected) {
+        if (onlyHazard && t.state !== 'hazard') continue
+        const cx = t.col * TILE + TILE / 2
+        const cy = t.row * TILE + TILE / 2
+        const d = Phaser.Math.Distance.Between(x, y, cx, cy)
+        if (d < bd) {
+          bd = d
+          best = { x: cx, y: cy }
+        }
+      }
+      if (best) return best
+    }
+    return best
+  }
+
+  /** Befallene Kachel an einer Position heilen (durch Energie-Freigabe). */
+  healAt(x: number, y: number): boolean {
+    const t = this.tileAt(x, y)
+    if (t && (t.state === 'hazard' || t.state === 'warn')) {
+      this.heal(t)
+      return true
+    }
+    return false
+  }
+
   private isProtected(t: Tile): boolean {
     const cx = t.col * TILE + TILE / 2
     const cy = t.row * TILE + TILE / 2
@@ -86,21 +117,55 @@ export class HazardFloor {
     return false
   }
 
+  // Virus-Ausbreitung: meist von bestehenden Herden auf Nachbarkacheln wachsen
+  // (zusammenhängende Flächen), selten ein neuer Herd.
   private spawnDecay() {
-    if (this.active >= this.params.maxHazards) return
-    for (let i = 0; i < 12; i++) {
+    if (this.infected.length >= this.params.maxHazards) return
+    let t: Tile | undefined
+    // meistens wachsen (zusammenhängend), nur selten (~7%) ein neuer Herd
+    if (this.infected.length > 0 && Phaser.Math.FloatBetween(0, 1) > 0.07) {
+      t = this.pickAdjacentOk()
+    }
+    if (!t) t = this.pickRandomOk()
+    if (t) this.startWarn(t)
+  }
+
+  private pickAdjacentOk(): Tile | undefined {
+    const order = Phaser.Utils.Array.Shuffle(this.infected.slice())
+    for (const src of order) {
+      const n = this.okNeighbors(src)
+      if (n.length) return Phaser.Utils.Array.GetRandom(n)
+    }
+    return undefined
+  }
+
+  private pickRandomOk(): Tile | undefined {
+    for (let i = 0; i < 16; i++) {
       const r = Phaser.Math.Between(0, this.rows - 1)
       const c = Phaser.Math.Between(0, this.cols - 1)
       const t = this.tiles[r][c]
-      if (t.state !== 'ok' || this.isProtected(t)) continue
-      this.startWarn(t)
-      return
+      if (t.state === 'ok' && !this.isProtected(t)) return t
     }
+    return undefined
+  }
+
+  private okNeighbors(t: Tile): Tile[] {
+    const cand = [
+      this.tiles[t.row - 1]?.[t.col],
+      this.tiles[t.row + 1]?.[t.col],
+      this.tiles[t.row]?.[t.col - 1],
+      this.tiles[t.row]?.[t.col + 1],
+    ]
+    const res: Tile[] = []
+    for (const n of cand) {
+      if (n && n.state === 'ok' && !this.isProtected(n)) res.push(n)
+    }
+    return res
   }
 
   private startWarn(t: Tile) {
     t.state = 'warn'
-    this.active++
+    this.infected.push(t)
     t.warn = this.scene.add
       .rectangle(t.col * TILE, t.row * TILE, TILE, TILE, 0xff3030)
       .setOrigin(0, 0)
@@ -130,10 +195,13 @@ export class HazardFloor {
   }
 
   private heal(t: Tile) {
-    if (t.state !== 'hazard') return
+    if (t.state === 'ok') return
+    t.warn?.destroy()
+    t.warn = undefined
     t.state = 'ok'
     t.img.setTexture(this.floorTex)
-    this.active = Math.max(0, this.active - 1)
+    const i = this.infected.indexOf(t)
+    if (i >= 0) this.infected.splice(i, 1)
   }
 
   destroy() {

@@ -41,6 +41,7 @@ export class PortalWorldScene extends Phaser.Scene {
   private compass?: Compass
   private chargingStart = 0
   private layout!: PortalLayout
+  private healProjectiles: Projectile[] = []
 
   constructor() {
     super('PortalWorldScene')
@@ -63,6 +64,7 @@ export class PortalWorldScene extends Phaser.Scene {
     this.invulnUntil = 0
     this.compass = undefined
     this.chargingStart = 0
+    this.healProjectiles = []
     this.layout = computeLayout(this.portal, GameState.seed)
 
     this.physics.world.setBounds(0, 0, REWARD_WIDTH, REWARD_HEIGHT)
@@ -112,21 +114,22 @@ export class PortalWorldScene extends Phaser.Scene {
     }
   }
 
-  private createThrowButton() {
+  private createThrowButton(label = 'Werfen', fontSize = '18px') {
     const cam = this.cameras.main
     const r = 48
     const x = cam.width - r - 22
     const y = cam.height - r - 22
     const circle = this.add.circle(0, 0, r, 0xffee58).setStrokeStyle(4, 0xf9a825)
-    const label = this.add
-      .text(0, 0, 'Werfen', {
+    const text = this.add
+      .text(0, 0, label, {
         fontFamily: 'sans-serif',
-        fontSize: '18px',
+        fontSize,
         color: '#5d4037',
         fontStyle: 'bold',
+        align: 'center',
       })
       .setOrigin(0.5)
-    this.throwButton = this.add.container(x, y, [circle, label]).setScrollFactor(0).setDepth(100)
+    this.throwButton = this.add.container(x, y, [circle, text]).setScrollFactor(0).setDepth(100)
     this.throwButtonRect = new Phaser.Geom.Rectangle(x - r, y - r, r * 2, r * 2)
   }
 
@@ -137,6 +140,10 @@ export class PortalWorldScene extends Phaser.Scene {
   }
 
   private tryThrow() {
+    if (this.charging) {
+      this.tryHealThrow()
+      return
+    }
     if (this.cleared || !this.creature || this.creature.freed) return
     const now = this.time.now
     if (now - this.lastThrow < THROW_COOLDOWN) return
@@ -152,6 +159,26 @@ export class PortalWorldScene extends Phaser.Scene {
 
     const pr = new Projectile(this, this.player.x, this.player.y, dir)
     this.physics.add.overlap(pr, this.creature, () => this.hitCreature(pr))
+  }
+
+  // Energie freigeben: wirft eine Lichtkugel auf das nächste schwarze Loch und
+  // heilt es (kostet Energie). So räumt man auf schwer den Boden auf.
+  private tryHealThrow() {
+    const now = this.time.now
+    if (now - this.lastThrow < THROW_COOLDOWN) return
+    const target = this.hazardFloor?.nearestInfected(this.player.x, this.player.y)
+    if (!target) return // nichts zu heilen
+    const cost = 6
+    if (this.energy < cost) {
+      this.game.events.emit('toast', 'Zu wenig Energie zum Freigeben – sammle erst Sternenenergie!')
+      return
+    }
+    this.lastThrow = now
+    this.setEnergy(this.energy - cost)
+    GameAudio.shoot()
+    const dir = new Phaser.Math.Vector2(target.x - this.player.x, target.y - this.player.y)
+    if (dir.length() < 1) dir.copy(this.player.facing)
+    this.healProjectiles.push(new Projectile(this, this.player.x, this.player.y, dir))
   }
 
   private hitCreature(pr: Projectile) {
@@ -265,12 +292,17 @@ export class PortalWorldScene extends Phaser.Scene {
 
     this.spawnReturnPortal()
     this.compass = new Compass(this)
+    this.createThrowButton('Frei-\ngeben', '15px')
     this.chargingStart = this.time.now
     this.charging = true
     this.emitEnergy()
+    const healHint =
+      GameState.difficulty === 'schwer'
+        ? ' Mit „Freigeben" heilst du schwarze Löcher (kostet Energie).'
+        : ''
     this.game.events.emit(
       'toast',
-      'Sternenenergie erscheint – lade das Portal auf und meide die schwarzen Löcher!',
+      `Sternenenergie erscheint – lade das Portal auf und meide die schwarzen Löcher!${healHint}`,
     )
   }
 
@@ -396,6 +428,21 @@ export class PortalWorldScene extends Phaser.Scene {
       this.hazardFloor?.isHazardAt(this.player.x, this.player.y)
     ) {
       this.hazardHit()
+    }
+
+    // Geworfene Energie heilt befallene Kacheln, die sie überfliegt.
+    for (let i = this.healProjectiles.length - 1; i >= 0; i--) {
+      const pr = this.healProjectiles[i]
+      if (!pr.active) {
+        this.healProjectiles.splice(i, 1)
+        continue
+      }
+      if (this.hazardFloor?.healAt(pr.x, pr.y)) {
+        GameAudio.hit()
+        this.cameras.main.flash(80, 120, 255, 180)
+        pr.destroy()
+        this.healProjectiles.splice(i, 1)
+      }
     }
 
     this.updateCompass()
