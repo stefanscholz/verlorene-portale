@@ -52,6 +52,7 @@ export const TEX = {
   hazard: 'tex-hazard',
   energy: 'tex-energy',
   compass: 'tex-compass',
+  camp: 'tex-camp',
   // Terrain-Kacheln (Wald-Thema)
   tGras: 'tex-t-gras',
   tWeg: 'tex-t-weg',

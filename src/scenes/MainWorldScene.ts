@@ -28,6 +28,7 @@ export class MainWorldScene extends Phaser.Scene {
   private compass!: Compass
   private terrain!: TerrainMap
   private lastEnergyInt = -1
+  private campPos = { x: 0, y: 0 }
 
   constructor() {
     super('MainWorldScene')
@@ -64,9 +65,17 @@ export class MainWorldScene extends Phaser.Scene {
     this.terrain = new TerrainMap(this, 'wald', grid)
     addAtmosphere(this, WORLD_WIDTH, WORLD_HEIGHT, 22)
 
+    // Lager (sicherer Ort, um Freunde heimzubringen).
+    this.campPos = layout.camp
+    this.add.image(layout.camp.x, layout.camp.y, TEX.camp).setDepth(4)
+
     // Spielfigur – Tempo richtet sich nach dem Boden, Berge/Steine blocken.
+    // Mit „Waldläufer" bewegt man sich im Wald wieder normal schnell.
     this.player = new Player(this, layout.playerStart.x, layout.playerStart.y)
-    this.player.setTerrain((x, y) => this.terrain.speedAt(x, y))
+    this.player.setTerrain((x, y) => {
+      if (this.terrain.idAt(x, y) === 'wald' && GameState.hasTerrainAbility('waldlaeufer')) return 1
+      return this.terrain.speedAt(x, y)
+    })
     this.physics.add.collider(this.player, this.terrain.blockers)
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1)
 
@@ -117,11 +126,27 @@ export class MainWorldScene extends Phaser.Scene {
     this.emitHud()
     this.applyPortalEnergy()
 
-    if (GameState.isBuilt(this.portal.id)) {
+    if (GameState.hasPending(this.portal.reward.companion.id)) {
+      this.toast(`Bring ${this.portal.reward.companion.name} zum Lager (Zelt am Feuer)!`)
+    } else if (GameState.isBuilt(this.portal.id)) {
       this.toast('Willkommen zurück! Tritt ins Portal, um die andere Welt zu besuchen.')
     } else {
       this.toast(`${this.portal.name} ist zerstört. Finde die 3 Teile und baue es wieder auf!`)
     }
+  }
+
+  // Freund im Lager abliefern -> Gelände-Fähigkeit dauerhaft freischalten.
+  private tryDeliverFriend() {
+    const companionId = this.portal.reward.companion.id
+    if (!GameState.hasPending(companionId)) return
+    if (Phaser.Math.Distance.Between(this.player.x, this.player.y, this.campPos.x, this.campPos.y) > 95) {
+      return
+    }
+    const ta = this.portal.reward.terrainAbility
+    GameState.deliverFriend(companionId, ta.id)
+    GameAudio.victory()
+    this.cameras.main.flash(450, 180, 255, 180)
+    this.toast(`${this.portal.reward.companion.name} ist sicher im Lager! Neue Fähigkeit „${ta.name}": ${ta.description}`)
   }
 
   private collectPart(c: Collectible) {
@@ -243,6 +268,7 @@ export class MainWorldScene extends Phaser.Scene {
 
   update(_time: number, delta: number) {
     this.drainInDeepWater(delta)
+    this.tryDeliverFriend()
 
     // Begleiter folgt der Figur und leuchtet (mit Kraft "Spürsinn") nahe Teilen.
     if (this.companion) {
@@ -271,8 +297,12 @@ export class MainWorldScene extends Phaser.Scene {
     this.updateCompass()
   }
 
-  // Kompass zeigt zum nächsten Ziel: noch fehlendes Teil, sonst Fundament/Portal.
+  // Kompass zeigt zum nächsten Ziel: Lager (Freund heimbringen) > Teil > Portal.
   private updateCompass() {
+    if (GameState.hasPending(this.portal.reward.companion.id)) {
+      this.compass.point(this.player.x, this.player.y, this.campPos.x, this.campPos.y, 'Lager')
+      return
+    }
     let tx = this.foundation.x
     let ty = this.foundation.y
     let label = this.foundation.built ? 'Portal' : 'Fundament'

@@ -41,6 +41,7 @@ export interface RewardWorldDef {
   creature: CreatureDef
   ability: AbilityDef
   companion: CompanionDef
+  terrainAbility: AbilityDef // wird freigeschaltet, wenn der Freund ins Lager kommt
   // Lade-/Hazard-Spiel (greift in der bereits befreiten Welt):
   floorTex: string // Boden-Kachel
   hazardTex: string // verfallene/gefährliche Kachel
@@ -75,6 +76,11 @@ export const PORTALS: PortalDef[] = [
         description: 'Dein Begleiter leuchtet, wenn ein Portal-Teil in der Nähe ist!',
       },
       companion: { id: 'glimmer', name: 'Glimmer', color: 0x66bb6a },
+      terrainAbility: {
+        id: 'waldlaeufer',
+        name: 'Waldläufer',
+        description: 'Du bewegst dich wieder normal schnell durch Wälder!',
+      },
       floorTex: TEX.floorSpace,
       hazardTex: TEX.hazard,
       hazardName: 'Schwarzes Loch',

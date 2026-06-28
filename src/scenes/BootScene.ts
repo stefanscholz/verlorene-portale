@@ -39,6 +39,7 @@ export class BootScene extends Phaser.Scene {
     svg(TEX.hazard, 'hazard_blackhole.svg', 64, 64)
     svg(TEX.energy, 'energy_star.svg', 32, 32)
     svg(TEX.compass, 'compass_arrow.svg', 32, 32)
+    svg(TEX.camp, 'camp.svg', 80, 80)
     // Terrain-Kacheln (Wald-Thema)
     svg(TEX.tGras, 't_gras.svg', 64, 64)
     svg(TEX.tWeg, 't_weg.svg', 64, 64)

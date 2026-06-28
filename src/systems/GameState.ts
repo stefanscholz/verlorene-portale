@@ -16,6 +16,8 @@ interface SaveData {
   difficulty: Difficulty
   portalEnergy: Record<string, number> // portalId -> 0..100
   seed: string // bestimmt die zufällige Platzierung (pro Spielstand stabil)
+  rescuedPending: string[] // companion-ids: gerettet, aber noch nicht heimgebracht
+  terrainAbilities: string[] // freigeschaltete Gelände-Fähigkeiten
 }
 
 class GameStateClass {
@@ -27,6 +29,8 @@ class GameStateClass {
   difficulty: Difficulty = 'leicht'
   portalEnergy: Record<string, number> = {}
   seed = ''
+  rescuedPending = new Set<string>()
+  terrainAbilities = new Set<string>()
 
   private makeSeed() {
     return Math.random().toString(36).slice(2, 10)
@@ -106,6 +110,26 @@ class GameStateClass {
     this.save()
   }
 
+  // Freund gerettet, aber noch nicht ins Lager gebracht
+  addRescuedPending(id: string) {
+    this.rescuedPending.add(id)
+    this.save()
+  }
+  hasPending(id: string) {
+    return this.rescuedPending.has(id)
+  }
+  get pendingCount() {
+    return this.rescuedPending.size
+  }
+  deliverFriend(companionId: string, terrainAbilityId: string) {
+    this.rescuedPending.delete(companionId)
+    this.terrainAbilities.add(terrainAbilityId)
+    this.save()
+  }
+  hasTerrainAbility(id: string) {
+    return this.terrainAbilities.has(id)
+  }
+
   getEnergy(portalId: string) {
     return this.portalEnergy[portalId] ?? 0
   }
@@ -125,6 +149,8 @@ class GameStateClass {
       difficulty: this.difficulty,
       portalEnergy: this.portalEnergy,
       seed: this.seed,
+      rescuedPending: [...this.rescuedPending],
+      terrainAbilities: [...this.terrainAbilities],
     }
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(data))
@@ -149,6 +175,8 @@ class GameStateClass {
       this.difficulty = data.difficulty ?? 'leicht'
       this.portalEnergy = data.portalEnergy ?? {}
       this.seed = data.seed ?? ''
+      this.rescuedPending = new Set(data.rescuedPending ?? [])
+      this.terrainAbilities = new Set(data.terrainAbilities ?? [])
     } catch {
       /* defekter Spielstand -> mit leerem Zustand starten */
     }
@@ -161,6 +189,8 @@ class GameStateClass {
     this.clearedDangers.clear()
     this.abilities.clear()
     this.companions.clear()
+    this.rescuedPending.clear()
+    this.terrainAbilities.clear()
     this.portalEnergy = {}
     this.seed = this.makeSeed() // neues Spiel -> neue zufällige Platzierung
     try {

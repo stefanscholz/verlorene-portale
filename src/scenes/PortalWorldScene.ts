@@ -242,6 +242,7 @@ export class PortalWorldScene extends Phaser.Scene {
     GameState.clearDanger(this.portal.id)
     GameState.unlockAbility(reward.ability.id)
     GameState.addCompanion(reward.companion.id)
+    GameState.addRescuedPending(reward.companion.id) // muss noch ins Lager gebracht werden
 
     this.creature?.free()
     // Freund zur Seite bewegen, damit Rück-Portal/Energie-Bereich frei sind.

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <ellipse cx="40" cy="64" rx="34" ry="12" fill="#3a6f33" opacity="0.5"/>
+  <!-- Zelt -->
+  <polygon points="30,18 50,52 10,52" fill="#e07a3c" stroke="#9c4f22" stroke-width="2"/>
+  <polygon points="30,18 38,52 22,52" fill="#f6b07a"/>
+  <polygon points="26,52 30,40 34,52" fill="#6b3b1c"/>
+  <line x1="30" y1="14" x2="30" y2="20" stroke="#9c4f22" stroke-width="2"/>
+  <circle cx="30" cy="13" r="2.4" fill="#ffd54f"/>
+  <!-- Lagerfeuer -->
+  <ellipse cx="60" cy="56" rx="10" ry="4" fill="#5d4030"/>
+  <rect x="52" y="53" width="16" height="3" rx="1.5" fill="#7a5436" transform="rotate(12 60 54)"/>
+  <rect x="52" y="55" width="16" height="3" rx="1.5" fill="#6b4a30" transform="rotate(-14 60 56)"/>
+  <path d="M60 52 q-5 -6 0 -12 q5 6 0 12" fill="#ff8a3c"/>
+  <path d="M60 52 q-3 -4 0 -8 q3 4 0 8" fill="#ffd54f"/>
+</svg>
