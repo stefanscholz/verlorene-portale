@@ -42,6 +42,13 @@ export interface RewardWorldDef {
   creature: CreatureDef
   ability: AbilityDef
   companion: CompanionDef
+  // Lade-/Hazard-Spiel (greift in der bereits befreiten Welt):
+  floorTex: string // Boden-Kachel
+  hazardTex: string // verfallene/gefährliche Kachel
+  hazardName: string // z. B. "Schwarzes Loch"
+  energyTex: string // Energiequelle
+  energyName: string // z. B. "Sternenenergie"
+  initialEnergySources: number
 }
 
 export interface PortalDef {
@@ -71,6 +78,12 @@ export const PORTALS: PortalDef[] = [
         description: 'Dein Begleiter leuchtet, wenn ein Portal-Teil in der Nähe ist!',
       },
       companion: { id: 'glimmer', name: 'Glimmer', color: 0x66bb6a },
+      floorTex: TEX.floorSpace,
+      hazardTex: TEX.hazard,
+      hazardName: 'Schwarzes Loch',
+      energyTex: TEX.energy,
+      energyName: 'Sternenenergie',
+      initialEnergySources: 6,
     },
   },
 ]

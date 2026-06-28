@@ -20,6 +20,7 @@ export class MainWorldScene extends Phaser.Scene {
   private buildButton?: Phaser.GameObjects.Container
   private buildButtonRect = new Phaser.Geom.Rectangle(0, 0, 0, 0)
   private entering = false
+  private energyHintShown = false
 
   constructor() {
     super('MainWorldScene')
@@ -83,6 +84,7 @@ export class MainWorldScene extends Phaser.Scene {
 
     this.scene.bringToTop('UIScene')
     this.emitHud()
+    this.applyPortalEnergy()
 
     if (GameState.isBuilt(this.portal.id)) {
       this.toast('Willkommen zurück! Tritt ins Portal, um die andere Welt zu besuchen.')
@@ -184,7 +186,19 @@ export class MainWorldScene extends Phaser.Scene {
       collected: GameState.collectedCount(this.portal.id),
       total: this.portal.parts.length,
       built: this.foundation.built,
+      energy: GameState.getEnergy(this.portal.id),
     })
+  }
+
+  // Gebautes Portal nach Ladung heller/dunkler; Hinweis bei wenig Energie.
+  private applyPortalEnergy() {
+    if (!this.foundation.built) return
+    const e = GameState.getEnergy(this.portal.id)
+    this.foundation.setAlpha(0.5 + (0.5 * e) / 100)
+    if (e < 20 && !this.energyHintShown) {
+      this.energyHintShown = true
+      this.toast('Das Portal hat wenig Energie! Geh hindurch und sammle Sternenenergie.')
+    }
   }
 
   private toast(text: string) {

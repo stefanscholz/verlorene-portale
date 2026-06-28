@@ -3,6 +3,7 @@
 // gespeichert, damit der Fortschritt einen Neustart übersteht.
 
 import { PORTALS } from '../data/portals'
+import { Difficulty } from '../config'
 
 const SAVE_KEY = 'verlorene-portale:v1'
 
@@ -12,6 +13,8 @@ interface SaveData {
   clearedDangers: string[] // portalId (Gefahr besiegt)
   abilities: string[] // ability-ids
   companions: string[] // companion-ids
+  difficulty: Difficulty
+  portalEnergy: Record<string, number> // portalId -> 0..100
 }
 
 class GameStateClass {
@@ -20,6 +23,8 @@ class GameStateClass {
   clearedDangers = new Set<string>()
   abilities = new Set<string>()
   companions = new Set<string>()
+  difficulty: Difficulty = 'leicht'
+  portalEnergy: Record<string, number> = {}
 
   private key(portalId: string, partId: string) {
     return `${portalId}:${partId}`
@@ -82,6 +87,20 @@ class GameStateClass {
     this.save()
   }
 
+  setDifficulty(d: Difficulty) {
+    this.difficulty = d
+    this.save()
+  }
+
+  getEnergy(portalId: string) {
+    return this.portalEnergy[portalId] ?? 0
+  }
+
+  setEnergy(portalId: string, value: number) {
+    this.portalEnergy[portalId] = Math.max(0, Math.min(100, value))
+    this.save()
+  }
+
   save() {
     const data: SaveData = {
       collectedParts: [...this.collectedParts],
@@ -89,6 +108,8 @@ class GameStateClass {
       clearedDangers: [...this.clearedDangers],
       abilities: [...this.abilities],
       companions: [...this.companions],
+      difficulty: this.difficulty,
+      portalEnergy: this.portalEnergy,
     }
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(data))
@@ -107,6 +128,8 @@ class GameStateClass {
       this.clearedDangers = new Set(data.clearedDangers ?? [])
       this.abilities = new Set(data.abilities ?? [])
       this.companions = new Set(data.companions ?? [])
+      this.difficulty = data.difficulty ?? 'leicht'
+      this.portalEnergy = data.portalEnergy ?? {}
     } catch {
       /* defekter Spielstand -> mit leerem Zustand starten */
     }
@@ -118,6 +141,7 @@ class GameStateClass {
     this.clearedDangers.clear()
     this.abilities.clear()
     this.companions.clear()
+    this.portalEnergy = {}
     try {
       localStorage.removeItem(SAVE_KEY)
     } catch {

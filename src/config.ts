@@ -48,6 +48,65 @@ export const TEX = {
   creature: 'tex-creature',
   creatureFriend: 'tex-creature-friend',
   companion: 'tex-companion',
+  floorSpace: 'tex-floor-space',
+  hazard: 'tex-hazard',
+  energy: 'tex-energy',
+}
+
+// Schwierigkeitsgrade steuern Energie-Verfall, Hazards und Strafen.
+// Werte sind Startpunkte fürs Balancing und leicht anpassbar.
+export type Difficulty = 'leicht' | 'mittel' | 'schwer'
+
+export interface DifficultyParams {
+  label: string
+  energyDecayPerSec: number // % pro Sekunde
+  hazardWarnSec: number // Vorwarnzeit, bevor eine Kachel gefährlich wird
+  hazardSpawnEverySec: number // Abstand zwischen neuen Verfall-Kacheln
+  maxHazards: number // gleichzeitig aktive Verfall-/Hazard-Kacheln
+  hazardLifeSec: number // 0 = bleibt dauerhaft (bis maxHazards)
+  hazardPenalty: number // % Energieabzug beim Betreten (wenn nicht lethal)
+  lethal: boolean // true = Betreten = verloren (zurück zur Hauptwelt)
+  energyRespawn: boolean // neue Energiequellen nachwachsen lassen?
+  energyPerPickup: number // % Energie pro Quelle
+}
+
+export const DIFFICULTY: Record<Difficulty, DifficultyParams> = {
+  leicht: {
+    label: 'Leicht',
+    energyDecayPerSec: 0,
+    hazardWarnSec: 2.5,
+    hazardSpawnEverySec: 9,
+    maxHazards: 4,
+    hazardLifeSec: 6,
+    hazardPenalty: 8,
+    lethal: false,
+    energyRespawn: true,
+    energyPerPickup: 14,
+  },
+  mittel: {
+    label: 'Mittel',
+    energyDecayPerSec: 1.2,
+    hazardWarnSec: 1.9,
+    hazardSpawnEverySec: 5.5,
+    maxHazards: 8,
+    hazardLifeSec: 7,
+    hazardPenalty: 18,
+    lethal: false,
+    energyRespawn: true,
+    energyPerPickup: 12,
+  },
+  schwer: {
+    label: 'Schwer',
+    energyDecayPerSec: 3.2,
+    hazardWarnSec: 1.3,
+    hazardSpawnEverySec: 3.5,
+    maxHazards: 16,
+    hazardLifeSec: 0,
+    hazardPenalty: 0,
+    lethal: true,
+    energyRespawn: false,
+    energyPerPickup: 20,
+  },
 }
 
 // Frames der Spielfigur je Blickrichtung (Idle + zwei Schrittbilder).

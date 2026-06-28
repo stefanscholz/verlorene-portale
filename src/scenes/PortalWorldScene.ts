@@ -1,10 +1,12 @@
 import Phaser from 'phaser'
-import { REWARD_WIDTH, REWARD_HEIGHT, TEX, THROW_COOLDOWN } from '../config'
+import { REWARD_WIDTH, REWARD_HEIGHT, TEX, THROW_COOLDOWN, DIFFICULTY, DifficultyParams } from '../config'
 import { PORTALS, PortalDef } from '../data/portals'
 import { GameState } from '../systems/GameState'
 import { Player } from '../objects/Player'
 import { Creature } from '../objects/Creature'
 import { Projectile } from '../objects/Projectile'
+import { EnergySource } from '../objects/EnergySource'
+import { HazardFloor } from '../objects/HazardFloor'
 import { addAtmosphere } from '../objects/atmosphere'
 import { GameAudio } from '../systems/Audio'
 
@@ -24,6 +26,17 @@ export class PortalWorldScene extends Phaser.Scene {
   private cleared = false
   private leaving = false
 
+  // Lade-/Hazard-Spiel (nur in der bereits befreiten Welt)
+  private charging = false
+  private params!: DifficultyParams
+  private hazardFloor?: HazardFloor
+  private energySources: EnergySource[] = []
+  private energy = 0
+  private entryEnergy = 0
+  private invulnUntil = 0
+  private full = false
+  private failed = false
+
   constructor() {
     super('PortalWorldScene')
   }
@@ -37,6 +50,12 @@ export class PortalWorldScene extends Phaser.Scene {
     this.cleared = GameState.isDangerCleared(this.portal.id)
     this.creature = undefined
     this.returnPortal = undefined
+    this.charging = false
+    this.full = false
+    this.failed = false
+    this.energySources = []
+    this.hazardFloor = undefined
+    this.invulnUntil = 0
 
     this.physics.world.setBounds(0, 0, REWARD_WIDTH, REWARD_HEIGHT)
     this.cameras.main.setBounds(0, 0, REWARD_WIDTH, REWARD_HEIGHT)
@@ -47,10 +66,8 @@ export class PortalWorldScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1)
 
     if (this.cleared) {
-      // Bereits befreit: freundliches Wesen + offenes Rück-Portal.
-      const friend = new Creature(this, REWARD_WIDTH / 2, 230, this.portal.reward.creature)
-      friend.free()
-      this.spawnReturnPortal()
+      // Bereits befreit: Lade-/Hazard-Spiel zum Aufladen des Portals.
+      this.setupCharging()
     } else {
       this.creature = new Creature(this, REWARD_WIDTH / 2, 230, this.portal.reward.creature)
       this.physics.add.overlap(this.player, this.creature, () => this.creatureTouchesPlayer())
@@ -77,7 +94,7 @@ export class PortalWorldScene extends Phaser.Scene {
     this.game.events.emit(
       'toast',
       this.cleared
-        ? 'Dein Freund wartet hier. Geh durch das Portal oben zurück.'
+        ? `Lade das Portal auf! Sammle ${this.portal.reward.energyName} und meide die schwarzen Löcher.`
         : 'Vorsicht – hier lauert eine Gefahr! Tippe den gelben Knopf, um Lichtkugeln zu werfen.',
     )
   }
@@ -190,6 +207,8 @@ export class PortalWorldScene extends Phaser.Scene {
     if (this.leaving) return
     this.leaving = true
     GameAudio.portalEnter()
+    this.hazardFloor?.destroy()
+    this.game.events.emit('energy', null)
     this.player.halt()
     this.cameras.main.fadeOut(500, 0, 0, 0)
     this.cameras.main.once('camerafadeoutcomplete', () => {
@@ -197,9 +216,147 @@ export class PortalWorldScene extends Phaser.Scene {
     })
   }
 
-  update() {
+  // --- Lade-/Hazard-Spiel (befreite Welt) ---
+
+  private setupCharging() {
+    this.params = DIFFICULTY[GameState.difficulty]
+    this.energy = this.entryEnergy = GameState.getEnergy(this.portal.id)
+
+    this.hazardFloor = new HazardFloor(
+      this,
+      REWARD_WIDTH,
+      REWARD_HEIGHT,
+      this.params,
+      this.portal.reward.floorTex,
+      this.portal.reward.hazardTex,
+      {
+        playerPos: () => ({ x: this.player.x, y: this.player.y }),
+        avoid: [
+          { x: REWARD_WIDTH / 2, y: 230, r: 110 }, // Rück-Portal
+          { x: REWARD_WIDTH / 2, y: REWARD_HEIGHT - 150, r: 110 }, // Startpunkt
+        ],
+      },
+    )
+
+    for (let i = 0; i < this.portal.reward.initialEnergySources; i++) this.spawnEnergySource()
+
+    this.spawnReturnPortal()
+    this.charging = true
+    this.emitEnergy()
+  }
+
+  private randomEnergyPos(): { x: number; y: number } {
+    for (let i = 0; i < 20; i++) {
+      const x = Phaser.Math.Between(80, REWARD_WIDTH - 80)
+      const y = Phaser.Math.Between(120, REWARD_HEIGHT - 140)
+      const dPortal = Phaser.Math.Distance.Between(x, y, REWARD_WIDTH / 2, 230)
+      const dSpawn = Phaser.Math.Distance.Between(x, y, REWARD_WIDTH / 2, REWARD_HEIGHT - 150)
+      if (dPortal > 110 && dSpawn > 90) return { x, y }
+    }
+    return { x: Phaser.Math.Between(80, REWARD_WIDTH - 80), y: REWARD_HEIGHT / 2 }
+  }
+
+  private spawnEnergySource() {
+    const pos = this.randomEnergyPos()
+    const src = new EnergySource(this, pos.x, pos.y, this.portal.reward.energyTex)
+    this.energySources.push(src)
+    this.physics.add.overlap(this.player, src, () => this.collectEnergy(src))
+  }
+
+  private collectEnergy(src: EnergySource) {
+    if (!src.active) return
+    const idx = this.energySources.indexOf(src)
+    if (idx >= 0) this.energySources.splice(idx, 1)
+    src.destroy()
+    GameAudio.collect()
+    this.setEnergy(this.energy + this.params.energyPerPickup)
+
+    if (this.energy >= 100 && !this.full) this.onFull()
+
+    if (this.params.energyRespawn) {
+      this.time.delayedCall(2400, () => {
+        if (this.charging && !this.leaving && !this.failed) this.spawnEnergySource()
+      })
+    }
+  }
+
+  private onFull() {
+    this.full = true
+    GameAudio.build()
+    this.game.events.emit('toast', '✨ Portal voll aufgeladen! Stark gemacht!')
+  }
+
+  private setEnergy(value: number) {
+    this.energy = Phaser.Math.Clamp(value, 0, 100)
+    if (this.energy < 100) this.full = false
+    GameState.setEnergy(this.portal.id, this.energy)
+    this.emitEnergy()
+  }
+
+  private emitEnergy() {
+    this.game.events.emit('energy', { value: this.energy })
+  }
+
+  private hazardHit() {
+    if (this.params.lethal) {
+      this.fail('Oje – ein schwarzes Loch hat dich erwischt!')
+      return
+    }
+    this.invulnUntil = this.time.now + 1000
+    this.setEnergy(this.energy - this.params.hazardPenalty)
+    GameAudio.hit()
+    this.cameras.main.flash(160, 120, 0, 0)
+    // kurzes Blinken + Rückstoß Richtung Startpunkt
+    this.tweens.add({ targets: this.player, alpha: 0.3, duration: 120, yoyo: true, repeat: 3 })
+    const dir = new Phaser.Math.Vector2(
+      REWARD_WIDTH / 2 - this.player.x,
+      REWARD_HEIGHT - 150 - this.player.y,
+    )
+      .normalize()
+      .scale(240)
+    this.player.halt()
+    ;(this.player.body as Phaser.Physics.Arcade.Body).setVelocity(dir.x, dir.y)
+    this.time.delayedCall(220, () => this.player.halt())
+  }
+
+  private fail(msg: string) {
+    if (this.failed || this.leaving) return
+    this.failed = true
+    this.charging = false
+    // Runden-Energie verfällt: zurück auf den Stand beim Betreten
+    GameState.setEnergy(this.portal.id, this.entryEnergy)
+    this.hazardFloor?.destroy()
+    GameAudio.hit()
+    this.player.halt()
+    this.game.events.emit('energy', null)
+    this.game.events.emit('toast', `${msg} Versuch es gleich nochmal!`)
+    this.cameras.main.flash(300, 140, 0, 0)
+    this.cameras.main.fadeOut(700, 0, 0, 0)
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('MainWorldScene'))
+  }
+
+  update(_time: number, delta: number) {
     if (this.creature && !this.creature.freed) {
       this.creature.chase(new Phaser.Math.Vector2(this.player.x, this.player.y))
+    }
+
+    if (!this.charging || this.failed || this.leaving) return
+
+    // Energie-Verfall
+    if (this.params.energyDecayPerSec > 0) {
+      this.setEnergy(this.energy - this.params.energyDecayPerSec * (delta / 1000))
+      if (this.energy <= 0 && this.params.lethal) {
+        this.fail('Die Portal-Energie ist erloschen!')
+        return
+      }
+    }
+
+    // Gefährliche Kachel betreten?
+    if (
+      this.time.now > this.invulnUntil &&
+      this.hazardFloor?.isHazardAt(this.player.x, this.player.y)
+    ) {
+      this.hazardHit()
     }
   }
 }

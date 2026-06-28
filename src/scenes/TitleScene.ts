@@ -18,6 +18,7 @@ export class TitleScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#191634')
     addAtmosphere(this, w, h, 26)
 
+    this.game.events.emit('hud', { mode: 'menu' })
     // Erste Berührung gibt Audio frei und startet die Musik.
     this.input.once('pointerdown', () => GameAudio.ensureStarted())
 
@@ -57,8 +58,7 @@ export class TitleScene extends Phaser.Scene {
       GameState.collectedParts.size > 0 || GameState.builtPortals.size > 0
 
     this.makeButton(w / 2, h * 0.76, hasProgress ? '▶  Weiterspielen' : '▶  Spielen', 0x39d4c8, () => {
-      if (hasProgress) this.scene.start('MainWorldScene')
-      else this.scene.start('StoryScene', { next: 'MainWorldScene' })
+      this.scene.start('DifficultyScene', { fresh: !hasProgress })
     })
 
     this.makeButton(w / 2, h * 0.86, 'Geschichte', 0x6a4caf, () => {
@@ -76,7 +76,7 @@ export class TitleScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => {
           GameState.reset()
-          this.scene.start('StoryScene', { next: 'MainWorldScene' })
+          this.scene.start('DifficultyScene', { fresh: true })
         })
     }
   }

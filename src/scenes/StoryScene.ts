@@ -36,6 +36,7 @@ export class StoryScene extends Phaser.Scene {
     const h = this.scale.height
     this.cameras.main.setBackgroundColor('#120f28')
     addAtmosphere(this, w, h, 22)
+    this.game.events.emit('hud', { mode: 'menu' })
 
     this.add.image(w / 2, h * 0.26, TEX.portal).setScale(1.1).setAlpha(0.9)
 
