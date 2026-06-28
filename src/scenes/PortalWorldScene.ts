@@ -1,5 +1,13 @@
 import Phaser from 'phaser'
-import { REWARD_WIDTH, REWARD_HEIGHT, TEX, THROW_COOLDOWN, DIFFICULTY, DifficultyParams } from '../config'
+import {
+  REWARD_WIDTH,
+  REWARD_HEIGHT,
+  TILE,
+  TEX,
+  THROW_COOLDOWN,
+  DIFFICULTY,
+  DifficultyParams,
+} from '../config'
 import { PORTALS, PortalDef } from '../data/portals'
 import { GameState } from '../systems/GameState'
 import { Player } from '../objects/Player'
@@ -10,6 +18,8 @@ import { HazardFloor } from '../objects/HazardFloor'
 import { Compass } from '../objects/Compass'
 import { addAtmosphere } from '../objects/atmosphere'
 import { GameAudio } from '../systems/Audio'
+import { generateTerrain } from '../systems/terrain'
+import { TerrainMap } from '../objects/TerrainMap'
 import { computeLayout, PortalLayout } from '../systems/layout'
 
 // Die Welt hinter dem Portal: Hier lauert eine Gefahr (Creature). Der Spieler
@@ -42,6 +52,7 @@ export class PortalWorldScene extends Phaser.Scene {
   private chargingStart = 0
   private layout!: PortalLayout
   private healProjectiles: Projectile[] = []
+  private terrain!: TerrainMap
 
   constructor() {
     super('PortalWorldScene')
@@ -70,9 +81,25 @@ export class PortalWorldScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, REWARD_WIDTH, REWARD_HEIGHT)
     this.cameras.main.setBounds(0, 0, REWARD_WIDTH, REWARD_HEIGHT)
     this.cameras.main.setBackgroundColor(this.portal.reward.groundColor)
+
+    // Weltraum-Landschaft (Nebel/Sternenpfade/Asteroidenfelder/Brocken/Leere).
+    const clear = [this.layout.rewardSpawn, this.layout.creature].map((p) => ({
+      col: Math.floor(p.x / TILE),
+      row: Math.floor(p.y / TILE),
+    }))
+    const grid = generateTerrain(
+      'weltraum',
+      Math.ceil(REWARD_WIDTH / TILE),
+      Math.ceil(REWARD_HEIGHT / TILE),
+      GameState.seed,
+      clear,
+    )
+    this.terrain = new TerrainMap(this, 'weltraum', grid)
     addAtmosphere(this, REWARD_WIDTH, REWARD_HEIGHT, 30)
 
     this.player = new Player(this, this.layout.rewardSpawn.x, this.layout.rewardSpawn.y)
+    this.player.setTerrain((x, y) => this.terrain.speedAt(x, y))
+    this.physics.add.collider(this.player, this.terrain.blockers)
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1)
 
     if (this.cleared) {
@@ -271,19 +298,22 @@ export class PortalWorldScene extends Phaser.Scene {
     this.params = DIFFICULTY[GameState.difficulty]
     this.energy = this.entryEnergy = GameState.getEnergy(this.portal.id)
 
+    const zones = [this.layout.creature, this.layout.rewardSpawn]
     this.hazardFloor = new HazardFloor(
       this,
-      REWARD_WIDTH,
-      REWARD_HEIGHT,
+      Math.ceil(REWARD_WIDTH / TILE),
+      Math.ceil(REWARD_HEIGHT / TILE),
       this.params,
-      this.portal.reward.floorTex,
       this.portal.reward.hazardTex,
       {
         playerPos: () => ({ x: this.player.x, y: this.player.y }),
-        avoid: [
-          { x: this.layout.creature.x, y: this.layout.creature.y, r: 110 }, // Rück-Portal/Gefahr
-          { x: this.layout.rewardSpawn.x, y: this.layout.rewardSpawn.y, r: 110 }, // Startpunkt
-        ],
+        // Nur auf begehbarem, nicht-zehrendem Boden außerhalb der Schutzzonen.
+        canInfect: (col, row) => {
+          const x = col * TILE + TILE / 2
+          const y = row * TILE + TILE / 2
+          if (this.terrain.isImpassable(x, y) || this.terrain.drainAt(x, y) > 0) return false
+          return zones.every((z) => Phaser.Math.Distance.Between(x, y, z.x, z.y) > 120)
+        },
       },
     )
 
@@ -315,9 +345,10 @@ export class PortalWorldScene extends Phaser.Scene {
   }
 
   private randomEnergyPos(): { x: number; y: number } {
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 30; i++) {
       const x = Phaser.Math.Between(80, REWARD_WIDTH - 80)
       const y = Phaser.Math.Between(120, REWARD_HEIGHT - 140)
+      if (this.terrain.isImpassable(x, y)) continue // nicht in Brocken
       const dPortal = Phaser.Math.Distance.Between(x, y, this.layout.creature.x, this.layout.creature.y)
       const dSpawn = Phaser.Math.Distance.Between(x, y, this.layout.rewardSpawn.x, this.layout.rewardSpawn.y)
       if (dPortal > 110 && dSpawn > 90) return { x, y }
@@ -410,6 +441,10 @@ export class PortalWorldScene extends Phaser.Scene {
     }
 
     if (!this.charging || this.failed || this.leaving) return
+
+    // Leere (tiefer Weltraum) zieht Energie, solange man darin steht.
+    const drain = this.terrain.drainAt(this.player.x, this.player.y)
+    if (drain > 0) this.setEnergy(this.energy - drain * (delta / 1000))
 
     // Energie-Verfall startet langsam: 3 s Schonzeit, dann über 5 s auf vollen
     // Verfall hochrampen. Leere Energie ist KEIN Verlust – verloren hat man nur
