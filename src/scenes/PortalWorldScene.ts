@@ -7,6 +7,7 @@ import { Creature } from '../objects/Creature'
 import { Projectile } from '../objects/Projectile'
 import { EnergySource } from '../objects/EnergySource'
 import { HazardFloor } from '../objects/HazardFloor'
+import { Compass } from '../objects/Compass'
 import { addAtmosphere } from '../objects/atmosphere'
 import { GameAudio } from '../systems/Audio'
 
@@ -36,6 +37,7 @@ export class PortalWorldScene extends Phaser.Scene {
   private invulnUntil = 0
   private full = false
   private failed = false
+  private compass?: Compass
 
   constructor() {
     super('PortalWorldScene')
@@ -56,6 +58,7 @@ export class PortalWorldScene extends Phaser.Scene {
     this.energySources = []
     this.hazardFloor = undefined
     this.invulnUntil = 0
+    this.compass = undefined
 
     this.physics.world.setBounds(0, 0, REWARD_WIDTH, REWARD_HEIGHT)
     this.cameras.main.setBounds(0, 0, REWARD_WIDTH, REWARD_HEIGHT)
@@ -241,6 +244,7 @@ export class PortalWorldScene extends Phaser.Scene {
     for (let i = 0; i < this.portal.reward.initialEnergySources; i++) this.spawnEnergySource()
 
     this.spawnReturnPortal()
+    this.compass = new Compass(this)
     this.charging = true
     this.emitEnergy()
   }
@@ -357,6 +361,27 @@ export class PortalWorldScene extends Phaser.Scene {
       this.hazardFloor?.isHazardAt(this.player.x, this.player.y)
     ) {
       this.hazardHit()
+    }
+
+    this.updateCompass()
+  }
+
+  // Kompass zeigt zur nächsten Energiequelle, sonst zum Rück-Portal.
+  private updateCompass() {
+    if (!this.compass) return
+    if (this.energySources.length > 0) {
+      let best = this.energySources[0]
+      let bd = Number.POSITIVE_INFINITY
+      for (const s of this.energySources) {
+        const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, s.x, s.y)
+        if (d < bd) {
+          bd = d
+          best = s
+        }
+      }
+      this.compass.point(this.player.x, this.player.y, best.x, best.y, 'Energie')
+    } else {
+      this.compass.point(this.player.x, this.player.y, REWARD_WIDTH / 2, 230, 'Zurück')
     }
   }
 }

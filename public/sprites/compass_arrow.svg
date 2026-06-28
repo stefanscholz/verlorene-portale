@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Pfeil zeigt nach oben (Standardrichtung); wird zur Laufzeit gedreht -->
+  <polygon points="16,3 25,22 16,17 7,22" fill="#ffd54f" stroke="#ff8f00" stroke-width="1.4" stroke-linejoin="round"/>
+  <circle cx="16" cy="20" r="2" fill="#ff8f00"/>
+</svg>

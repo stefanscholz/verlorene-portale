@@ -6,6 +6,7 @@ import { Player } from '../objects/Player'
 import { Collectible } from '../objects/Collectible'
 import { PortalFoundation } from '../objects/PortalFoundation'
 import { Companion } from '../objects/Companion'
+import { Compass } from '../objects/Compass'
 import { addAtmosphere } from '../objects/atmosphere'
 import { GameAudio } from '../systems/Audio'
 
@@ -21,6 +22,7 @@ export class MainWorldScene extends Phaser.Scene {
   private buildButtonRect = new Phaser.Geom.Rectangle(0, 0, 0, 0)
   private entering = false
   private energyHintShown = false
+  private compass!: Compass
 
   constructor() {
     super('MainWorldScene')
@@ -81,6 +83,8 @@ export class MainWorldScene extends Phaser.Scene {
       const wp = this.cameras.main.getWorldPoint(p.x, p.y)
       this.player.moveTo(wp.x, wp.y)
     })
+
+    this.compass = new Compass(this)
 
     this.scene.bringToTop('UIScene')
     this.emitHud()
@@ -229,5 +233,29 @@ export class MainWorldScene extends Phaser.Scene {
       ) < 150
     if (canBuild && nearFoundation) this.showBuildButton()
     else this.hideBuildButton()
+
+    this.updateCompass()
+  }
+
+  // Kompass zeigt zum nächsten Ziel: noch fehlendes Teil, sonst Fundament/Portal.
+  private updateCompass() {
+    let tx = this.foundation.x
+    let ty = this.foundation.y
+    let label = this.foundation.built ? 'Portal' : 'Fundament'
+    if (this.collectibles.length > 0) {
+      let best = this.collectibles[0]
+      let bd = Number.POSITIVE_INFINITY
+      for (const c of this.collectibles) {
+        const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, c.x, c.y)
+        if (d < bd) {
+          bd = d
+          best = c
+        }
+      }
+      tx = best.x
+      ty = best.y
+      label = 'Teil'
+    }
+    this.compass.point(this.player.x, this.player.y, tx, ty, label)
   }
 }

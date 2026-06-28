@@ -38,6 +38,7 @@ export class BootScene extends Phaser.Scene {
     svg(TEX.floorSpace, 'floor_space.svg', 64, 64)
     svg(TEX.hazard, 'hazard_blackhole.svg', 64, 64)
     svg(TEX.energy, 'energy_star.svg', 32, 32)
+    svg(TEX.compass, 'compass_arrow.svg', 32, 32)
   }
 
   create() {

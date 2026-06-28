@@ -51,6 +51,7 @@ export const TEX = {
   floorSpace: 'tex-floor-space',
   hazard: 'tex-hazard',
   energy: 'tex-energy',
+  compass: 'tex-compass',
 }
 
 // Schwierigkeitsgrade steuern Energie-Verfall, Hazards und Strafen.
