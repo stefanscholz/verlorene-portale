@@ -9,7 +9,7 @@ import { Companion } from '../objects/Companion'
 import { Compass } from '../objects/Compass'
 import { addAtmosphere } from '../objects/atmosphere'
 import { GameAudio } from '../systems/Audio'
-import { computeLayout, PortalLayout } from '../systems/layout'
+import { computeLayout, PortalLayout, Vec2 } from '../systems/layout'
 import { generateTerrain } from '../systems/terrain'
 import { TerrainMap } from '../objects/TerrainMap'
 
@@ -55,10 +55,18 @@ export class MainWorldScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
 
-    // Layouts: das erste Portal liefert Spielstart + Lager (das „Zuhause").
-    const home = computeLayout(PORTALS[0], GameState.seed)
+    // Layouts sequenziell berechnen: jedes neue Portal weicht den schon
+    // platzierten Fundamenten/Teilen aus (kein Überlappen bei vielen Portalen).
+    // Das erste Portal liefert Spielstart + Lager (das „Zuhause").
+    const layouts = new Map<string, PortalLayout>()
+    const avoid: Vec2[] = []
+    for (const p of PORTALS) {
+      const L = computeLayout(p, GameState.seed, avoid)
+      layouts.set(p.id, L)
+      avoid.push(L.foundation, ...Object.values(L.parts))
+    }
+    const home = layouts.get(PORTALS[0].id)!
     this.campPos = home.camp
-    const layouts = new Map(PORTALS.map((p) => [p.id, computeLayout(p, GameState.seed)]))
 
     // Landschaft erzeugen; alle Fundamente/Teile/Start/Lager bleiben begehbar.
     const clearPts = [home.playerStart, home.camp]
@@ -81,12 +89,10 @@ export class MainWorldScene extends Phaser.Scene {
     this.add.image(home.camp.x, home.camp.y, TEX.camp).setDepth(4)
     for (const c of this.deliveredCompanions()) this.addFriendAtCamp(c.color)
 
-    // Spielfigur – Tempo nach Boden; „Waldläufer" macht Wald wieder schnell.
+    // Spielfigur – Tempo nach Boden; freigeschaltete Gelände-Fähigkeiten
+    // (z. B. „Waldläufer") berücksichtigt speedAt bereits datengetrieben.
     this.player = new Player(this, home.playerStart.x, home.playerStart.y)
-    this.player.setTerrain((x, y) => {
-      if (this.terrain.idAt(x, y) === 'wald' && GameState.hasTerrainAbility('waldlaeufer')) return 1
-      return this.terrain.speedAt(x, y)
-    })
+    this.player.setTerrain((x, y) => this.terrain.speedAt(x, y))
     this.physics.add.collider(this.player, this.terrain.blockers)
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1)
 
@@ -286,10 +292,11 @@ export class MainWorldScene extends Phaser.Scene {
     this.game.events.emit('toast', text)
   }
 
-  // Tiefes Wasser zieht Energie vom nächsten gebauten Portal (außer „Wassergeist").
+  // Tiefes Wasser zieht Energie vom nächsten gebauten Portal. Freigeschaltete
+  // Fähigkeiten (z. B. „Wassergeist") liefern über drainAt bereits 0.
   private drainInDeepWater(delta: number) {
     const drain = this.terrain.drainAt(this.player.x, this.player.y)
-    if (drain <= 0 || GameState.hasTerrainAbility('wassergeist')) return
+    if (drain <= 0) return
     const built = this.entries.filter((e) => e.foundation.built)
     if (!built.length) return
     let near = built[0]

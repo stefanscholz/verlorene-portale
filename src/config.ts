@@ -67,6 +67,18 @@ export const TEX = {
   tFeld: 'tex-t-feld',
   tLeere: 'tex-t-leere',
   tBrocken: 'tex-t-brocken',
+  // Terrain-Kacheln (Wüsten-Thema)
+  tSand: 'tex-t-sand',
+  tWuestenweg: 'tex-t-wuestenweg',
+  tDuene: 'tex-t-duene',
+  tTreibsand: 'tex-t-treibsand',
+  tWuestenfels: 'tex-t-wuestenfels',
+  // Terrain-Kacheln (Höhlen-Thema)
+  tBoden: 'tex-t-boden',
+  tPilz: 'tex-t-pilz',
+  tEnge: 'tex-t-enge',
+  tLava: 'tex-t-lava',
+  tHoehleFels: 'tex-t-hoehlefels',
 }
 
 // Schwierigkeitsgrade steuern Energie-Verfall, Hazards und Strafen.
