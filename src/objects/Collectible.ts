@@ -6,8 +6,8 @@ import { PartDef } from '../data/portals'
 export class Collectible extends Phaser.Physics.Arcade.Image {
   partDef: PartDef
 
-  constructor(scene: Phaser.Scene, def: PartDef) {
-    super(scene, def.pos.x, def.pos.y, def.tex)
+  constructor(scene: Phaser.Scene, x: number, y: number, def: PartDef) {
+    super(scene, x, y, def.tex)
     this.partDef = def
     scene.add.existing(this)
     scene.physics.add.existing(this)
@@ -15,7 +15,7 @@ export class Collectible extends Phaser.Physics.Arcade.Image {
 
     scene.tweens.add({
       targets: this,
-      y: def.pos.y - 10,
+      y: y - 10,
       duration: 900,
       yoyo: true,
       repeat: -1,

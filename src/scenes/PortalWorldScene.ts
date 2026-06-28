@@ -10,6 +10,7 @@ import { HazardFloor } from '../objects/HazardFloor'
 import { Compass } from '../objects/Compass'
 import { addAtmosphere } from '../objects/atmosphere'
 import { GameAudio } from '../systems/Audio'
+import { computeLayout, PortalLayout } from '../systems/layout'
 
 // Die Welt hinter dem Portal: Hier lauert eine Gefahr (Creature). Der Spieler
 // läuft per Tippen und wirft mit dem "Werfen"-Knopf Lichtkugeln. Ist die Gefahr
@@ -39,6 +40,7 @@ export class PortalWorldScene extends Phaser.Scene {
   private failed = false
   private compass?: Compass
   private chargingStart = 0
+  private layout!: PortalLayout
 
   constructor() {
     super('PortalWorldScene')
@@ -61,20 +63,26 @@ export class PortalWorldScene extends Phaser.Scene {
     this.invulnUntil = 0
     this.compass = undefined
     this.chargingStart = 0
+    this.layout = computeLayout(this.portal, GameState.seed)
 
     this.physics.world.setBounds(0, 0, REWARD_WIDTH, REWARD_HEIGHT)
     this.cameras.main.setBounds(0, 0, REWARD_WIDTH, REWARD_HEIGHT)
     this.cameras.main.setBackgroundColor(this.portal.reward.groundColor)
     addAtmosphere(this, REWARD_WIDTH, REWARD_HEIGHT, 30)
 
-    this.player = new Player(this, REWARD_WIDTH / 2, REWARD_HEIGHT - 150)
+    this.player = new Player(this, this.layout.rewardSpawn.x, this.layout.rewardSpawn.y)
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1)
 
     if (this.cleared) {
       // Bereits befreit: Lade-/Hazard-Spiel zum Aufladen des Portals.
       this.beginCharging()
     } else {
-      this.creature = new Creature(this, REWARD_WIDTH / 2, 230, this.portal.reward.creature)
+      this.creature = new Creature(
+        this,
+        this.layout.creature.x,
+        this.layout.creature.y,
+        this.portal.reward.creature,
+      )
       this.physics.add.overlap(this.player, this.creature, () => this.creatureTouchesPlayer())
     }
 
@@ -201,7 +209,9 @@ export class PortalWorldScene extends Phaser.Scene {
   private spawnReturnPortal() {
     if (this.returnPortal) return
     // Erscheint dort, wo die Gefahr war.
-    this.returnPortal = this.physics.add.staticImage(REWARD_WIDTH / 2, 230, TEX.portal).setDepth(4)
+    this.returnPortal = this.physics.add
+      .staticImage(this.layout.creature.x, this.layout.creature.y, TEX.portal)
+      .setDepth(4)
     this.tweens.add({
       targets: this.returnPortal,
       scale: { from: 0.9, to: 1.1 },
@@ -244,8 +254,8 @@ export class PortalWorldScene extends Phaser.Scene {
       {
         playerPos: () => ({ x: this.player.x, y: this.player.y }),
         avoid: [
-          { x: REWARD_WIDTH / 2, y: 230, r: 110 }, // Rück-Portal
-          { x: REWARD_WIDTH / 2, y: REWARD_HEIGHT - 150, r: 110 }, // Startpunkt
+          { x: this.layout.creature.x, y: this.layout.creature.y, r: 110 }, // Rück-Portal/Gefahr
+          { x: this.layout.rewardSpawn.x, y: this.layout.rewardSpawn.y, r: 110 }, // Startpunkt
         ],
       },
     )
@@ -276,8 +286,8 @@ export class PortalWorldScene extends Phaser.Scene {
     for (let i = 0; i < 20; i++) {
       const x = Phaser.Math.Between(80, REWARD_WIDTH - 80)
       const y = Phaser.Math.Between(120, REWARD_HEIGHT - 140)
-      const dPortal = Phaser.Math.Distance.Between(x, y, REWARD_WIDTH / 2, 230)
-      const dSpawn = Phaser.Math.Distance.Between(x, y, REWARD_WIDTH / 2, REWARD_HEIGHT - 150)
+      const dPortal = Phaser.Math.Distance.Between(x, y, this.layout.creature.x, this.layout.creature.y)
+      const dSpawn = Phaser.Math.Distance.Between(x, y, this.layout.rewardSpawn.x, this.layout.rewardSpawn.y)
       if (dPortal > 110 && dSpawn > 90) return { x, y }
     }
     return { x: Phaser.Math.Between(80, REWARD_WIDTH - 80), y: REWARD_HEIGHT / 2 }
@@ -406,7 +416,13 @@ export class PortalWorldScene extends Phaser.Scene {
       }
       this.compass.point(this.player.x, this.player.y, best.x, best.y, 'Energie')
     } else {
-      this.compass.point(this.player.x, this.player.y, REWARD_WIDTH / 2, 230, 'Zurück')
+      this.compass.point(
+        this.player.x,
+        this.player.y,
+        this.layout.creature.x,
+        this.layout.creature.y,
+        'Zurück',
+      )
     }
   }
 }

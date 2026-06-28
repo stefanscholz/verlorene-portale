@@ -9,6 +9,7 @@ import { Companion } from '../objects/Companion'
 import { Compass } from '../objects/Compass'
 import { addAtmosphere } from '../objects/atmosphere'
 import { GameAudio } from '../systems/Audio'
+import { computeLayout } from '../systems/layout'
 
 // Die Hauptwelt: erkunden, die 3 Portal-Teile sammeln, am Fundament das Portal
 // bauen und es betreten. Ein bereits befreundeter Begleiter folgt der Figur.
@@ -40,23 +41,27 @@ export class MainWorldScene extends Phaser.Scene {
     this.drawGround()
     addAtmosphere(this, WORLD_WIDTH, WORLD_HEIGHT, 22)
 
+    // Zufällige (aber pro Spielstand stabile) Platzierung.
+    const layout = computeLayout(this.portal, GameState.seed)
+
     // Spielfigur startet etwas unterhalb des Fundaments.
-    this.player = new Player(this, this.portal.foundation.x, this.portal.foundation.y + 170)
+    this.player = new Player(this, layout.playerStart.x, layout.playerStart.y)
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1)
 
     // Fundament bzw. (falls bereits gebaut) aktives Portal.
     this.foundation = new PortalFoundation(
       this,
-      this.portal.foundation.x,
-      this.portal.foundation.y,
+      layout.foundation.x,
+      layout.foundation.y,
       GameState.isBuilt(this.portal.id),
     )
     this.physics.add.overlap(this.player, this.foundation, () => this.tryEnterPortal())
 
-    // Noch nicht gesammelte Teile platzieren.
+    // Noch nicht gesammelte Teile an ihren zufälligen Positionen platzieren.
     for (const part of this.portal.parts) {
       if (GameState.hasPart(this.portal.id, part.id)) continue
-      const c = new Collectible(this, part)
+      const pos = layout.parts[part.id]
+      const c = new Collectible(this, pos.x, pos.y, part)
       this.collectibles.push(c)
       this.physics.add.overlap(this.player, c, () => this.collectPart(c))
     }

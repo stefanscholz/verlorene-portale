@@ -15,6 +15,7 @@ interface SaveData {
   companions: string[] // companion-ids
   difficulty: Difficulty
   portalEnergy: Record<string, number> // portalId -> 0..100
+  seed: string // bestimmt die zufällige Platzierung (pro Spielstand stabil)
 }
 
 class GameStateClass {
@@ -25,6 +26,19 @@ class GameStateClass {
   companions = new Set<string>()
   difficulty: Difficulty = 'leicht'
   portalEnergy: Record<string, number> = {}
+  seed = ''
+
+  private makeSeed() {
+    return Math.random().toString(36).slice(2, 10)
+  }
+
+  /** Stellt sicher, dass ein Seed existiert (z. B. für alte Spielstände). */
+  ensureSeed() {
+    if (!this.seed) {
+      this.seed = this.makeSeed()
+      this.save()
+    }
+  }
 
   private key(portalId: string, partId: string) {
     return `${portalId}:${partId}`
@@ -110,6 +124,7 @@ class GameStateClass {
       companions: [...this.companions],
       difficulty: this.difficulty,
       portalEnergy: this.portalEnergy,
+      seed: this.seed,
     }
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(data))
@@ -121,7 +136,10 @@ class GameStateClass {
   load() {
     try {
       const raw = localStorage.getItem(SAVE_KEY)
-      if (!raw) return
+      if (!raw) {
+        this.ensureSeed()
+        return
+      }
       const data = JSON.parse(raw) as SaveData
       this.collectedParts = new Set(data.collectedParts ?? [])
       this.builtPortals = new Set(data.builtPortals ?? [])
@@ -130,9 +148,11 @@ class GameStateClass {
       this.companions = new Set(data.companions ?? [])
       this.difficulty = data.difficulty ?? 'leicht'
       this.portalEnergy = data.portalEnergy ?? {}
+      this.seed = data.seed ?? ''
     } catch {
       /* defekter Spielstand -> mit leerem Zustand starten */
     }
+    this.ensureSeed()
   }
 
   reset() {
@@ -142,11 +162,13 @@ class GameStateClass {
     this.abilities.clear()
     this.companions.clear()
     this.portalEnergy = {}
+    this.seed = this.makeSeed() // neues Spiel -> neue zufällige Platzierung
     try {
       localStorage.removeItem(SAVE_KEY)
     } catch {
       /* ignorieren */
     }
+    this.save()
   }
 }
 

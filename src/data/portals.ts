@@ -12,7 +12,6 @@ export interface Vec2 {
 export interface PartDef {
   id: string
   name: string
-  pos: Vec2
   tex: string // Textur-Schlüssel (eigenes Aussehen je Teil)
 }
 
@@ -54,7 +53,6 @@ export interface RewardWorldDef {
 export interface PortalDef {
   id: string
   name: string
-  foundation: Vec2
   parts: PartDef[]
   reward: RewardWorldDef
 }
@@ -63,11 +61,10 @@ export const PORTALS: PortalDef[] = [
   {
     id: 'portal-wald',
     name: 'Das Waldportal',
-    foundation: { x: 800, y: 320 },
     parts: [
-      { id: 'rahmen', name: 'Portal-Rahmen', pos: { x: 240, y: 1200 }, tex: TEX.partRahmen },
-      { id: 'kristall', name: 'Leucht-Kristall', pos: { x: 1360, y: 1300 }, tex: TEX.partKristall },
-      { id: 'schluessel', name: 'Portal-Schlüssel', pos: { x: 1320, y: 380 }, tex: TEX.partSchluessel },
+      { id: 'rahmen', name: 'Portal-Rahmen', tex: TEX.partRahmen },
+      { id: 'kristall', name: 'Leucht-Kristall', tex: TEX.partKristall },
+      { id: 'schluessel', name: 'Portal-Schlüssel', tex: TEX.partSchluessel },
     ],
     reward: {
       groundColor: 0x4527a0,
