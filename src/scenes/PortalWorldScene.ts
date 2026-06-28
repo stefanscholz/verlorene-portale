@@ -38,6 +38,7 @@ export class PortalWorldScene extends Phaser.Scene {
   private full = false
   private failed = false
   private compass?: Compass
+  private chargingStart = 0
 
   constructor() {
     super('PortalWorldScene')
@@ -59,6 +60,7 @@ export class PortalWorldScene extends Phaser.Scene {
     this.hazardFloor = undefined
     this.invulnUntil = 0
     this.compass = undefined
+    this.chargingStart = 0
 
     this.physics.world.setBounds(0, 0, REWARD_WIDTH, REWARD_HEIGHT)
     this.cameras.main.setBounds(0, 0, REWARD_WIDTH, REWARD_HEIGHT)
@@ -70,7 +72,7 @@ export class PortalWorldScene extends Phaser.Scene {
 
     if (this.cleared) {
       // Bereits befreit: Lade-/Hazard-Spiel zum Aufladen des Portals.
-      this.setupCharging()
+      this.beginCharging()
     } else {
       this.creature = new Creature(this, REWARD_WIDTH / 2, 230, this.portal.reward.creature)
       this.physics.add.overlap(this.player, this.creature, () => this.creatureTouchesPlayer())
@@ -94,12 +96,12 @@ export class PortalWorldScene extends Phaser.Scene {
     this.game.events.emit('hud', { mode: 'portal', portalName: this.portal.name })
 
     this.cameras.main.fadeIn(400, 0, 0, 0)
-    this.game.events.emit(
-      'toast',
-      this.cleared
-        ? `Lade das Portal auf! Sammle ${this.portal.reward.energyName} und meide die schwarzen Löcher.`
-        : 'Vorsicht – hier lauert eine Gefahr! Tippe den gelben Knopf, um Lichtkugeln zu werfen.',
-    )
+    if (!this.cleared) {
+      this.game.events.emit(
+        'toast',
+        'Vorsicht – hier lauert eine Gefahr! Tippe den gelben Knopf, um Lichtkugeln zu werfen.',
+      )
+    }
   }
 
   private createThrowButton() {
@@ -180,6 +182,10 @@ export class PortalWorldScene extends Phaser.Scene {
     GameState.addCompanion(reward.companion.id)
 
     this.creature?.free()
+    // Freund zur Seite bewegen, damit Rück-Portal/Energie-Bereich frei sind.
+    if (this.creature) {
+      this.tweens.add({ targets: this.creature, x: 130, y: 175, duration: 700, ease: 'Sine.inOut' })
+    }
     this.hideThrowButton()
     GameAudio.victory()
     this.cameras.main.flash(500, 180, 255, 180)
@@ -187,7 +193,9 @@ export class PortalWorldScene extends Phaser.Scene {
       'toast',
       `Geschafft! ${reward.companion.name} ist jetzt dein Freund. Neue Kraft „${reward.ability.name}": ${reward.ability.description}`,
     )
-    this.time.delayedCall(900, () => this.spawnReturnPortal())
+    // Direkt nach dem Boss-Kampf beginnt sanft das Aufladen (Energie erscheint
+    // nach und nach, Verfall startet langsam).
+    this.time.delayedCall(1600, () => this.beginCharging())
   }
 
   private spawnReturnPortal() {
@@ -221,7 +229,8 @@ export class PortalWorldScene extends Phaser.Scene {
 
   // --- Lade-/Hazard-Spiel (befreite Welt) ---
 
-  private setupCharging() {
+  private beginCharging() {
+    if (this.charging) return
     this.params = DIFFICULTY[GameState.difficulty]
     this.energy = this.entryEnergy = GameState.getEnergy(this.portal.id)
 
@@ -241,12 +250,26 @@ export class PortalWorldScene extends Phaser.Scene {
       },
     )
 
-    for (let i = 0; i < this.portal.reward.initialEnergySources; i++) this.spawnEnergySource()
+    // Energie erscheint nach und nach (nicht alles auf einmal).
+    this.spawnEnergyGradually(this.portal.reward.initialEnergySources)
 
     this.spawnReturnPortal()
     this.compass = new Compass(this)
+    this.chargingStart = this.time.now
     this.charging = true
     this.emitEnergy()
+    this.game.events.emit(
+      'toast',
+      'Sternenenergie erscheint – lade das Portal auf und meide die schwarzen Löcher!',
+    )
+  }
+
+  private spawnEnergyGradually(n: number) {
+    for (let i = 0; i < n; i++) {
+      this.time.delayedCall(400 + i * 1100, () => {
+        if (this.charging && !this.leaving && !this.failed) this.spawnEnergySource()
+      })
+    }
   }
 
   private randomEnergyPos(): { x: number; y: number } {
@@ -346,12 +369,14 @@ export class PortalWorldScene extends Phaser.Scene {
 
     if (!this.charging || this.failed || this.leaving) return
 
-    // Energie-Verfall
+    // Energie-Verfall startet langsam: 3 s Schonzeit, dann über 5 s auf vollen
+    // Verfall hochrampen. Leere Energie ist KEIN Verlust – verloren hat man nur
+    // beim Betreten eines schwarzen Lochs.
     if (this.params.energyDecayPerSec > 0) {
-      this.setEnergy(this.energy - this.params.energyDecayPerSec * (delta / 1000))
-      if (this.energy <= 0 && this.params.lethal) {
-        this.fail('Die Portal-Energie ist erloschen!')
-        return
+      const elapsed = this.time.now - this.chargingStart
+      const factor = Phaser.Math.Clamp((elapsed - 3000) / 5000, 0, 1)
+      if (factor > 0) {
+        this.setEnergy(this.energy - this.params.energyDecayPerSec * factor * (delta / 1000))
       }
     }
 
