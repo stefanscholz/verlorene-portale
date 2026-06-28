@@ -38,6 +38,7 @@ export interface CompanionDef {
 
 export interface RewardWorldDef {
   groundColor: number
+  terrainTheme: string // Terrain-Thema der Portalwelt (siehe systems/terrain.ts)
   creature: CreatureDef
   ability: AbilityDef
   companion: CompanionDef
@@ -69,6 +70,7 @@ export const PORTALS: PortalDef[] = [
     ],
     reward: {
       groundColor: 0x4527a0,
+      terrainTheme: 'weltraum',
       creature: { energy: 5, speed: 72, color: 0xe53935 },
       ability: {
         id: 'spuersinn',
@@ -80,6 +82,37 @@ export const PORTALS: PortalDef[] = [
         id: 'waldlaeufer',
         name: 'Waldläufer',
         description: 'Du bewegst dich wieder normal schnell durch Wälder!',
+      },
+      floorTex: TEX.floorSpace,
+      hazardTex: TEX.hazard,
+      hazardName: 'Schwarzes Loch',
+      energyTex: TEX.energy,
+      energyName: 'Sternenenergie',
+      initialEnergySources: 6,
+    },
+  },
+  {
+    id: 'portal-stern',
+    name: 'Das Sternenportal',
+    parts: [
+      { id: 'rahmen', name: 'Stern-Rahmen', tex: TEX.partRahmen },
+      { id: 'kristall', name: 'Stern-Kristall', tex: TEX.partKristall },
+      { id: 'schluessel', name: 'Stern-Schlüssel', tex: TEX.partSchluessel },
+    ],
+    reward: {
+      groundColor: 0x16314f,
+      terrainTheme: 'weltraum',
+      creature: { energy: 6, speed: 80, color: 0x42a5f5 },
+      ability: {
+        id: 'sternensicht',
+        name: 'Sternensicht',
+        description: 'Dein Begleiter leuchtet, wenn ein Portal-Teil in der Nähe ist!',
+      },
+      companion: { id: 'funki', name: 'Funki', color: 0x42a5f5 },
+      terrainAbility: {
+        id: 'wassergeist',
+        name: 'Wassergeist',
+        description: 'Tiefes Wasser zieht dir keine Energie mehr ab!',
       },
       floorTex: TEX.floorSpace,
       hazardTex: TEX.hazard,

@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 import { WORLD_WIDTH, WORLD_HEIGHT, TILE, TEX } from '../config'
-import { FIRST_PORTAL } from '../data/portals'
+import { PORTALS, PortalDef } from '../data/portals'
 import { GameState } from '../systems/GameState'
 import { Player } from '../objects/Player'
 import { Collectible } from '../objects/Collectible'
@@ -9,26 +9,34 @@ import { Companion } from '../objects/Companion'
 import { Compass } from '../objects/Compass'
 import { addAtmosphere } from '../objects/atmosphere'
 import { GameAudio } from '../systems/Audio'
-import { computeLayout } from '../systems/layout'
+import { computeLayout, PortalLayout } from '../systems/layout'
 import { generateTerrain } from '../systems/terrain'
 import { TerrainMap } from '../objects/TerrainMap'
 
-// Die Hauptwelt: erkunden, die 3 Portal-Teile sammeln, am Fundament das Portal
-// bauen und es betreten. Ein bereits befreundeter Begleiter folgt der Figur.
+// Ein Portal in der Hauptwelt: Fundament + (noch nicht gesammelte) Teile.
+interface PortalEntry {
+  portal: PortalDef
+  layout: PortalLayout
+  foundation: PortalFoundation
+  collectibles: Collectible[]
+}
+
+// Die Hauptwelt: erkunden, Teile sammeln, Portale (mehrere!) bauen und betreten,
+// Freunde ins Lager bringen. Landschaft beeinflusst die Bewegung.
 export class MainWorldScene extends Phaser.Scene {
-  private portal = FIRST_PORTAL
   private player!: Player
-  private foundation!: PortalFoundation
-  private collectibles: Collectible[] = []
-  private companion?: Companion
+  private terrain!: TerrainMap
+  private compass!: Compass
+  private entries: PortalEntry[] = []
+  private escort?: Companion
+  private campPos = { x: 0, y: 0 }
+  private friendCount = 0
   private buildButton?: Phaser.GameObjects.Container
   private buildButtonRect = new Phaser.Geom.Rectangle(0, 0, 0, 0)
+  private buildEntry?: PortalEntry
   private entering = false
   private energyHintShown = false
-  private compass!: Compass
-  private terrain!: TerrainMap
   private lastEnergyInt = -1
-  private campPos = { x: 0, y: 0 }
 
   constructor() {
     super('MainWorldScene')
@@ -36,25 +44,29 @@ export class MainWorldScene extends Phaser.Scene {
 
   create() {
     this.entering = false
-    this.collectibles = []
-    this.companion = undefined
+    this.entries = []
+    this.escort = undefined
     this.buildButton = undefined
     this.buildButtonRect = new Phaser.Geom.Rectangle(0, 0, 0, 0)
+    this.buildEntry = undefined
+    this.lastEnergyInt = -1
+    this.friendCount = 0
 
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
-    this.lastEnergyInt = -1
 
-    // Zufällige (aber pro Spielstand stabile) Platzierung.
-    const layout = computeLayout(this.portal, GameState.seed)
+    // Layouts: das erste Portal liefert Spielstart + Lager (das „Zuhause").
+    const home = computeLayout(PORTALS[0], GameState.seed)
+    this.campPos = home.camp
+    const layouts = new Map(PORTALS.map((p) => [p.id, computeLayout(p, GameState.seed)]))
 
-    // Landschaft erzeugen (Berge/Flüsse/Wälder/Wege); Zielpunkte bleiben begehbar.
-    const clear = [
-      layout.playerStart,
-      layout.foundation,
-      layout.camp,
-      ...Object.values(layout.parts),
-    ].map((p) => ({ col: Math.floor(p.x / TILE), row: Math.floor(p.y / TILE) }))
+    // Landschaft erzeugen; alle Fundamente/Teile/Start/Lager bleiben begehbar.
+    const clearPts = [home.playerStart, home.camp]
+    for (const p of PORTALS) {
+      const L = layouts.get(p.id)!
+      clearPts.push(L.foundation, ...Object.values(L.parts))
+    }
+    const clear = clearPts.map((p) => ({ col: Math.floor(p.x / TILE), row: Math.floor(p.y / TILE) }))
     const grid = generateTerrain(
       'wald',
       Math.ceil(WORLD_WIDTH / TILE),
@@ -65,13 +77,12 @@ export class MainWorldScene extends Phaser.Scene {
     this.terrain = new TerrainMap(this, 'wald', grid)
     addAtmosphere(this, WORLD_WIDTH, WORLD_HEIGHT, 22)
 
-    // Lager (sicherer Ort, um Freunde heimzubringen).
-    this.campPos = layout.camp
-    this.add.image(layout.camp.x, layout.camp.y, TEX.camp).setDepth(4)
+    // Lager + bereits heimgebrachte Freunde am Feuer.
+    this.add.image(home.camp.x, home.camp.y, TEX.camp).setDepth(4)
+    for (const c of this.deliveredCompanions()) this.addFriendAtCamp(c.color)
 
-    // Spielfigur – Tempo richtet sich nach dem Boden, Berge/Steine blocken.
-    // Mit „Waldläufer" bewegt man sich im Wald wieder normal schnell.
-    this.player = new Player(this, layout.playerStart.x, layout.playerStart.y)
+    // Spielfigur – Tempo nach Boden; „Waldläufer" macht Wald wieder schnell.
+    this.player = new Player(this, home.playerStart.x, home.playerStart.y)
     this.player.setTerrain((x, y) => {
       if (this.terrain.idAt(x, y) === 'wald' && GameState.hasTerrainAbility('waldlaeufer')) return 1
       return this.terrain.speedAt(x, y)
@@ -79,41 +90,33 @@ export class MainWorldScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this.terrain.blockers)
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1)
 
-    // Fundament bzw. (falls bereits gebaut) aktives Portal.
-    this.foundation = new PortalFoundation(
-      this,
-      layout.foundation.x,
-      layout.foundation.y,
-      GameState.isBuilt(this.portal.id),
-    )
-    this.physics.add.overlap(this.player, this.foundation, () => this.tryEnterPortal())
-
-    // Noch nicht gesammelte Teile an ihren zufälligen Positionen platzieren.
-    for (const part of this.portal.parts) {
-      if (GameState.hasPart(this.portal.id, part.id)) continue
-      const pos = layout.parts[part.id]
-      const c = new Collectible(this, pos.x, pos.y, part)
-      this.collectibles.push(c)
-      this.physics.add.overlap(this.player, c, () => this.collectPart(c))
+    // Der noch heimzubringende Freund folgt der Figur.
+    const pending = PORTALS.map((p) => p.reward.companion).find((c) => GameState.hasPending(c.id))
+    if (pending) {
+      this.escort = new Companion(this, this.player.x - 30, this.player.y, pending.color)
     }
 
-    // Begleiter, falls bereits befreundet.
-    if (GameState.hasCompanion(this.portal.reward.companion.id)) {
-      this.companion = new Companion(
-        this,
-        this.player.x - 30,
-        this.player.y,
-        this.portal.reward.companion.color,
-      )
+    // Fundamente + Teile aller Portale.
+    for (const p of PORTALS) {
+      const L = layouts.get(p.id)!
+      const foundation = new PortalFoundation(this, L.foundation.x, L.foundation.y, GameState.isBuilt(p.id))
+      const entry: PortalEntry = { portal: p, layout: L, foundation, collectibles: [] }
+      this.physics.add.overlap(this.player, foundation, () => this.tryEnterPortal(entry))
+      for (const part of p.parts) {
+        if (GameState.hasPart(p.id, part.id)) continue
+        const pos = L.parts[part.id]
+        const c = new Collectible(this, pos.x, pos.y, part)
+        entry.collectibles.push(c)
+        this.physics.add.overlap(this.player, c, () => this.collectPart(c, entry))
+      }
+      this.entries.push(entry)
     }
 
-    // Tippen: zum Bauen-Knopf -> bauen, sonst hinlaufen.
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       GameAudio.ensureStarted()
-      // Tipp auf den Ton-Knopf (oben rechts) nicht als Laufen werten
-      if (p.x > this.cameras.main.width - 52 && p.y < 50) return
+      if (p.x > this.cameras.main.width - 52 && p.y < 50) return // Ton-Knopf
       if (this.buildButton && this.buildButtonRect.contains(p.x, p.y)) {
-        this.buildPortal()
+        if (this.buildEntry) this.buildPortal(this.buildEntry)
         return
       }
       const wp = this.cameras.main.getWorldPoint(p.x, p.y)
@@ -121,79 +124,112 @@ export class MainWorldScene extends Phaser.Scene {
     })
 
     this.compass = new Compass(this)
-
     this.scene.bringToTop('UIScene')
     this.emitHud()
     this.applyPortalEnergy()
 
-    if (GameState.hasPending(this.portal.reward.companion.id)) {
-      this.toast(`Bring ${this.portal.reward.companion.name} zum Lager (Zelt am Feuer)!`)
-    } else if (GameState.isBuilt(this.portal.id)) {
-      this.toast('Willkommen zurück! Tritt ins Portal, um die andere Welt zu besuchen.')
+    if (pending) {
+      this.toast(`Bring ${pending.name} zum Lager (Zelt am Feuer)!`)
     } else {
-      this.toast(`${this.portal.name} ist zerstört. Finde die 3 Teile und baue es wieder auf!`)
+      const e = this.nearestEntry()
+      this.toast(
+        e.foundation.built
+          ? `Willkommen zurück! Tritt in ein Portal, um eine andere Welt zu besuchen.`
+          : `${e.portal.name} ist zerstört. Finde die 3 Teile und baue es wieder auf!`,
+      )
     }
+  }
+
+  private deliveredCompanions() {
+    return PORTALS.map((p) => p.reward.companion).filter(
+      (c) => GameState.hasCompanion(c.id) && !GameState.hasPending(c.id),
+    )
+  }
+
+  private addFriendAtCamp(color: number) {
+    const i = this.friendCount++
+    const fx = this.campPos.x - 34 + (i % 3) * 30
+    const fy = this.campPos.y + 34 + Math.floor(i / 3) * 24
+    const img = this.add.image(fx, fy, TEX.companion).setTint(color).setDepth(5).setScale(0.9)
+    this.tweens.add({
+      targets: img,
+      y: fy - 5,
+      duration: 700 + i * 90,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.inOut',
+    })
+  }
+
+  private nearestEntry(): PortalEntry {
+    let best = this.entries[0]
+    let bd = Number.POSITIVE_INFINITY
+    for (const e of this.entries) {
+      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.foundation.x, e.foundation.y)
+      if (d < bd) {
+        bd = d
+        best = e
+      }
+    }
+    return best
   }
 
   // Freund im Lager abliefern -> Gelände-Fähigkeit dauerhaft freischalten.
   private tryDeliverFriend() {
-    const companionId = this.portal.reward.companion.id
-    if (!GameState.hasPending(companionId)) return
+    const pending = PORTALS.find((p) => GameState.hasPending(p.reward.companion.id))
+    if (!pending) return
     if (Phaser.Math.Distance.Between(this.player.x, this.player.y, this.campPos.x, this.campPos.y) > 95) {
       return
     }
-    const ta = this.portal.reward.terrainAbility
-    GameState.deliverFriend(companionId, ta.id)
+    const ta = pending.reward.terrainAbility
+    GameState.deliverFriend(pending.reward.companion.id, ta.id)
     GameAudio.victory()
     this.cameras.main.flash(450, 180, 255, 180)
-    this.toast(`${this.portal.reward.companion.name} ist sicher im Lager! Neue Fähigkeit „${ta.name}": ${ta.description}`)
+    this.escort?.destroy()
+    this.escort = undefined
+    this.addFriendAtCamp(pending.reward.companion.color)
+    this.toast(
+      `${pending.reward.companion.name} ist sicher im Lager! Neue Fähigkeit „${ta.name}": ${ta.description}`,
+    )
   }
 
-  private collectPart(c: Collectible) {
+  private collectPart(c: Collectible, entry: PortalEntry) {
     if (!c.active) return
-    GameState.collectPart(this.portal.id, c.partDef.id)
+    GameState.collectPart(entry.portal.id, c.partDef.id)
     GameAudio.collect()
-    const idx = this.collectibles.indexOf(c)
-    if (idx >= 0) this.collectibles.splice(idx, 1)
-    this.tweens.add({
-      targets: c,
-      scale: 0,
-      alpha: 0,
-      duration: 250,
-      onComplete: () => c.destroy(),
-    })
+    const idx = entry.collectibles.indexOf(c)
+    if (idx >= 0) entry.collectibles.splice(idx, 1)
+    this.tweens.add({ targets: c, scale: 0, alpha: 0, duration: 250, onComplete: () => c.destroy() })
 
-    const have = GameState.collectedCount(this.portal.id)
-    const total = this.portal.parts.length
-    const left = total - have
-    const msg =
+    const have = GameState.collectedCount(entry.portal.id)
+    const left = entry.portal.parts.length - have
+    this.toast(
       left > 0
         ? `Super! ${c.partDef.name} gefunden! Noch ${left} ${left === 1 ? 'Teil' : 'Teile'} fehlen.`
-        : 'Toll, du hast alle Teile! Geh zum Fundament und tippe auf „Portal bauen".'
-    this.toast(msg)
+        : `Toll, du hast alle Teile für ${entry.portal.name}! Geh zum Fundament und baue es.`,
+    )
     this.emitHud()
   }
 
-  private buildPortal() {
-    if (this.foundation.built) return
-    if (!GameState.hasAllParts(this.portal.id)) return
-    GameState.buildPortal(this.portal.id)
+  private buildPortal(entry: PortalEntry) {
+    if (entry.foundation.built || !GameState.hasAllParts(entry.portal.id)) return
+    GameState.buildPortal(entry.portal.id)
     GameAudio.build()
-    this.foundation.build()
+    entry.foundation.build()
     this.hideBuildButton()
     this.cameras.main.flash(450, 200, 150, 255)
     this.toast('Das Portal leuchtet! Tritt hindurch, um die andere Welt zu betreten.')
     this.emitHud()
   }
 
-  private tryEnterPortal() {
-    if (!this.foundation.built || this.entering) return
+  private tryEnterPortal(entry: PortalEntry) {
+    if (!entry.foundation.built || this.entering) return
     this.entering = true
     GameAudio.portalEnter()
     this.player.halt()
     this.cameras.main.fadeOut(500, 0, 0, 0)
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('PortalWorldScene', { portalId: this.portal.id })
+      this.scene.start('PortalWorldScene', { portalId: entry.portal.id })
     })
   }
 
@@ -211,10 +247,7 @@ export class MainWorldScene extends Phaser.Scene {
         fontStyle: 'bold',
       })
       .setOrigin(0.5)
-    this.buildButton = this.add
-      .container(x, y, [bg, label])
-      .setScrollFactor(0)
-      .setDepth(100)
+    this.buildButton = this.add.container(x, y, [bg, label]).setScrollFactor(0).setDepth(100)
     this.buildButtonRect = new Phaser.Geom.Rectangle(x - 125, y - 33, 250, 66)
   }
 
@@ -225,24 +258,27 @@ export class MainWorldScene extends Phaser.Scene {
   }
 
   private emitHud() {
+    const e = this.nearestEntry()
     this.game.events.emit('hud', {
       mode: 'main',
-      portalName: this.portal.name,
-      collected: GameState.collectedCount(this.portal.id),
-      total: this.portal.parts.length,
-      built: this.foundation.built,
-      energy: GameState.getEnergy(this.portal.id),
+      portalName: e.portal.name,
+      collected: GameState.collectedCount(e.portal.id),
+      total: e.portal.parts.length,
+      built: e.foundation.built,
+      energy: GameState.getEnergy(e.portal.id),
     })
   }
 
-  // Gebautes Portal nach Ladung heller/dunkler; Hinweis bei wenig Energie.
+  // Gebaute Portale nach Ladung heller/dunkler; Hinweis bei wenig Energie.
   private applyPortalEnergy() {
-    if (!this.foundation.built) return
-    const e = GameState.getEnergy(this.portal.id)
-    this.foundation.setAlpha(0.5 + (0.5 * e) / 100)
-    if (e < 20 && !this.energyHintShown) {
-      this.energyHintShown = true
-      this.toast('Das Portal hat wenig Energie! Geh hindurch und sammle Sternenenergie.')
+    for (const e of this.entries) {
+      if (!e.foundation.built) continue
+      const energy = GameState.getEnergy(e.portal.id)
+      e.foundation.setAlpha(0.5 + (0.5 * energy) / 100)
+      if (energy < 20 && !this.energyHintShown) {
+        this.energyHintShown = true
+        this.toast('Ein Portal hat wenig Energie! Geh hindurch und sammle Sternenenergie.')
+      }
     }
   }
 
@@ -250,14 +286,25 @@ export class MainWorldScene extends Phaser.Scene {
     this.game.events.emit('toast', text)
   }
 
-  // Tiefes Wasser zieht Energie, solange man darin steht.
+  // Tiefes Wasser zieht Energie vom nächsten gebauten Portal (außer „Wassergeist").
   private drainInDeepWater(delta: number) {
     const drain = this.terrain.drainAt(this.player.x, this.player.y)
-    if (drain <= 0) return
-    const e = GameState.getEnergy(this.portal.id)
-    if (e <= 0) return
-    GameState.setEnergy(this.portal.id, e - drain * (delta / 1000))
-    const shown = Math.ceil(GameState.getEnergy(this.portal.id))
+    if (drain <= 0 || GameState.hasTerrainAbility('wassergeist')) return
+    const built = this.entries.filter((e) => e.foundation.built)
+    if (!built.length) return
+    let near = built[0]
+    let bd = Number.POSITIVE_INFINITY
+    for (const e of built) {
+      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.foundation.x, e.foundation.y)
+      if (d < bd) {
+        bd = d
+        near = e
+      }
+    }
+    const energy = GameState.getEnergy(near.portal.id)
+    if (energy <= 0) return
+    GameState.setEnergy(near.portal.id, energy - drain * (delta / 1000))
+    const shown = Math.ceil(GameState.getEnergy(near.portal.id))
     if (shown !== this.lastEnergyInt) {
       this.lastEnergyInt = shown
       this.emitHud()
@@ -270,55 +317,60 @@ export class MainWorldScene extends Phaser.Scene {
     this.drainInDeepWater(delta)
     this.tryDeliverFriend()
 
-    // Begleiter folgt der Figur und leuchtet (mit Kraft "Spürsinn") nahe Teilen.
-    if (this.companion) {
-      this.companion.follow(this.player.x - 28, this.player.y - 6)
-      const hasSense = GameState.hasAbility(this.portal.reward.ability.id)
-      const near =
-        hasSense &&
-        this.collectibles.some(
+    // Begleiter (heimzubringender Freund) folgt und leuchtet nahe Teilen.
+    if (this.escort) {
+      this.escort.follow(this.player.x - 28, this.player.y - 6)
+      const near = this.entries.some((e) =>
+        e.collectibles.some(
           (c) => Phaser.Math.Distance.Between(this.player.x, this.player.y, c.x, c.y) < 240,
-        )
-      this.companion.setNearPart(near)
+        ),
+      )
+      this.escort.setNearPart(near)
     }
 
-    // Bauen-Knopf nur zeigen, wenn alle Teile da, noch nicht gebaut und nah am Fundament.
-    const canBuild = GameState.hasAllParts(this.portal.id) && !this.foundation.built
-    const nearFoundation =
-      Phaser.Math.Distance.Between(
-        this.player.x,
-        this.player.y,
-        this.foundation.x,
-        this.foundation.y,
-      ) < 150
-    if (canBuild && nearFoundation) this.showBuildButton()
+    // Bauen-Knopf: nahe einem Fundament mit allen Teilen, noch nicht gebaut.
+    this.buildEntry = this.entries.find(
+      (e) =>
+        !e.foundation.built &&
+        GameState.hasAllParts(e.portal.id) &&
+        Phaser.Math.Distance.Between(this.player.x, this.player.y, e.foundation.x, e.foundation.y) < 150,
+    )
+    if (this.buildEntry) this.showBuildButton()
     else this.hideBuildButton()
 
     this.updateCompass()
   }
 
-  // Kompass zeigt zum nächsten Ziel: Lager (Freund heimbringen) > Teil > Portal.
+  // Kompass: Lager (Freund heimbringen) > nächstes Teil > nächstes Fundament.
   private updateCompass() {
-    if (GameState.hasPending(this.portal.reward.companion.id)) {
+    const pending = PORTALS.find((p) => GameState.hasPending(p.reward.companion.id))
+    if (pending) {
       this.compass.point(this.player.x, this.player.y, this.campPos.x, this.campPos.y, 'Lager')
       return
     }
-    let tx = this.foundation.x
-    let ty = this.foundation.y
-    let label = this.foundation.built ? 'Portal' : 'Fundament'
-    if (this.collectibles.length > 0) {
-      let best = this.collectibles[0]
-      let bd = Number.POSITIVE_INFINITY
-      for (const c of this.collectibles) {
+    let tx = 0
+    let ty = 0
+    let label = 'Fundament'
+    let bd = Number.POSITIVE_INFINITY
+    let found = false
+    for (const e of this.entries) {
+      for (const c of e.collectibles) {
         const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, c.x, c.y)
         if (d < bd) {
           bd = d
-          best = c
+          tx = c.x
+          ty = c.y
+          label = 'Teil'
+          found = true
         }
       }
-      tx = best.x
-      ty = best.y
-      label = 'Teil'
+    }
+    if (!found) {
+      // nächstes Fundament/Portal
+      const e = this.nearestEntry()
+      tx = e.foundation.x
+      ty = e.foundation.y
+      label = e.foundation.built ? 'Portal' : 'Fundament'
     }
     this.compass.point(this.player.x, this.player.y, tx, ty, label)
   }
